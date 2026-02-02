@@ -12,6 +12,7 @@ library:
   source-dirs: src
   dependencies:
     - bytestring
+    - mtl
     - opt-env-conf
     - path
     - text

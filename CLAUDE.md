@@ -27,6 +27,7 @@ holds sound. The system echoes back what you need to know.
 
 ## Technical Stack
 
+- **Claude**: Claude will be writing echoic for the most part. Make sure to update this file when something changes that claude should be aware of every time.
 - **Haskell**: Strong types catch errors at compile time (critical when
   you can't see error messages easily)
 - **Nix**: Reproducible builds, declarative dependencies

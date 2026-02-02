@@ -16,6 +16,7 @@ build-type:     Simple
 library
   exposed-modules:
       Echoic
+      Echoic.Env
       Echoic.OptParse
   other-modules:
       Paths_echoic
@@ -29,6 +30,7 @@ library
   build-depends:
       base >=4.17 && <5
     , bytestring
+    , mtl
     , opt-env-conf
     , path
     , text

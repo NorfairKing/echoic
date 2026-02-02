@@ -1,5 +1,5 @@
-{ mkDerivation, base, bytestring, lib, opt-env-conf, path, text
-, typed-process
+{ mkDerivation, base, bytestring, lib, mtl, opt-env-conf, path
+, text, typed-process
 }:
 mkDerivation {
   pname = "echoic";
@@ -8,7 +8,7 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    base bytestring opt-env-conf path text typed-process
+    base bytestring mtl opt-env-conf path text typed-process
   ];
   executableHaskellDepends = [ base ];
   description = "Blind computing environment";
