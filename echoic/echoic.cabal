@@ -17,6 +17,8 @@ library
   exposed-modules:
       Echoic
       Echoic.App
+      Echoic.Config
+      Echoic.Default
       Echoic.Env
       Echoic.OptParse
       Echoic.Shell

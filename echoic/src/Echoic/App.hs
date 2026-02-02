@@ -17,8 +17,9 @@ import Data.Foldable (for_)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
+import Echoic.Config
 import Echoic.Shell (OutputResult (..), runShellCommand)
-import Echoic.Speech (SpeechHandle, cancelSpeech, speakAsync)
+import Echoic.Speech (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsync)
 import Echoic.State
 import qualified Graphics.Vty as Vty
 import Path (Abs, File, Path)
@@ -28,39 +29,49 @@ data AppEvent
   deriving (Show)
 
 echoicApp ::
+  Config ->
   Path Abs File ->
   TVar (Maybe SpeechHandle) ->
   BChan AppEvent ->
   App AppState AppEvent ResourceName
-echoicApp voicePath speechVar eventChan =
+echoicApp config voicePath speechVar eventChan =
   App
-    { appDraw = drawUI,
+    { appDraw = drawUI config,
       appChooseCursor = neverShowCursor,
-      appHandleEvent = handleEvent voicePath speechVar eventChan,
+      appHandleEvent = handleEvent config voicePath speechVar eventChan,
       appStartEvent = pure (),
       appAttrMap = const theAttrMap
     }
 
-drawUI :: AppState -> [Widget ResourceName]
-drawUI s = case stateMode s of
-  InputMode -> drawInputMode s
-  OutputMode -> drawOutputMode s
+drawUI :: Config -> AppState -> [Widget ResourceName]
+drawUI config s = case stateMode s of
+  InputMode -> drawInputMode config s
+  OutputMode -> drawOutputMode config s
 
-drawInputMode :: AppState -> [Widget ResourceName]
-drawInputMode s =
+drawInputMode :: Config -> AppState -> [Widget ResourceName]
+drawInputMode config s =
   [ vBox
       [ str "$ " <+> selectedTextCursorWidget MainViewport (stateInputBuffer s),
         str " ",
-        str "[Ctrl+R: read | Enter: run | Esc: cancel speech]"
+        str $
+          "["
+            <> showKeyCombo (inputReadBuffer ib)
+            <> ": read | "
+            <> showKeyCombo (inputExecuteCommand ib)
+            <> ": run | "
+            <> showKeyCombo (inputCancelSpeech ib)
+            <> ": cancel]"
       ]
   ]
+  where
+    ib = configInputBindings config
 
-drawOutputMode :: AppState -> [Widget ResourceName]
-drawOutputMode s =
+drawOutputMode :: Config -> AppState -> [Widget ResourceName]
+drawOutputMode config s =
   [ vBox $
       case stateOutput s of
         Nothing ->
-          [str "No output", str " ", str "[i: input | q: quit]"]
+          [str "No output", str " ", str $ "[" <> showKeyCombo (outputEnterInputMode ob') <> ": input | " <> showKeyCombo (outputQuit ob') <> ": quit]"]
         Just ob ->
           let total = length (outputLines ob)
               idx = outputIndex ob
@@ -73,23 +84,65 @@ drawOutputMode s =
                 str " ",
                 str currentLine,
                 str " ",
-                str "[j/k: navigate | .: read | Esc: cancel | i: input | q: quit]"
+                str $
+                  "["
+                    <> showKeyCombo (outputNextLine ob')
+                    <> "/"
+                    <> showKeyCombo (outputPreviousLine ob')
+                    <> ": navigate | "
+                    <> showKeyCombo (outputReadLine ob')
+                    <> ": read | "
+                    <> showKeyCombo (outputCancelSpeech ob')
+                    <> ": cancel | "
+                    <> showKeyCombo (outputEnterInputMode ob')
+                    <> ": input | "
+                    <> showKeyCombo (outputQuit ob')
+                    <> ": quit]"
               ]
   ]
+  where
+    ob' = configOutputBindings config
+
+-- | Show a key combo in human-readable format
+showKeyCombo :: KeyCombo -> String
+showKeyCombo (KeyCombo k mods) =
+  modPrefix <> keyStr
+  where
+    modPrefix = concatMap showMod mods
+    showMod Vty.MCtrl = "Ctrl+"
+    showMod Vty.MMeta = "Meta+"
+    showMod Vty.MAlt = "Alt+"
+    showMod Vty.MShift = "Shift+"
+    keyStr = case k of
+      Vty.KChar c -> [c]
+      Vty.KEsc -> "Esc"
+      Vty.KEnter -> "Enter"
+      Vty.KBS -> "Backspace"
+      Vty.KDel -> "Delete"
+      Vty.KLeft -> "Left"
+      Vty.KRight -> "Right"
+      Vty.KUp -> "Up"
+      Vty.KDown -> "Down"
+      Vty.KHome -> "Home"
+      Vty.KEnd -> "End"
+      Vty.KPageUp -> "PageUp"
+      Vty.KPageDown -> "PageDown"
+      _ -> "?"
 
 handleEvent ::
+  Config ->
   Path Abs File ->
   TVar (Maybe SpeechHandle) ->
   BChan AppEvent ->
   BrickEvent ResourceName AppEvent ->
   EventM ResourceName AppState ()
-handleEvent voicePath speechVar eventChan event = do
+handleEvent config voicePath speechVar eventChan event = do
   s <- get
   case event of
-    VtyEvent (Vty.EvKey key mods) ->
+    VtyEvent (Vty.EvKey k mods) ->
       case stateMode s of
-        InputMode -> handleInputMode voicePath speechVar eventChan key mods
-        OutputMode -> handleOutputMode voicePath speechVar key mods
+        InputMode -> handleInputMode config voicePath speechVar eventChan k mods
+        OutputMode -> handleOutputMode config voicePath speechVar k mods
     AppEvent (CommandComplete result) -> do
       let allLines = resultStdout result <> resultStderr result
           ob =
@@ -98,6 +151,10 @@ handleEvent voicePath speechVar eventChan event = do
                 outputIndex = 0,
                 outputCommand = maybe "" (TextCursor.rebuildTextCursor . stateInputBuffer) (Just s)
               }
+          statusVoice =
+            if resultExitCode result == 0
+              then voiceDone vl
+              else voiceFailed vl
       modify $ \st ->
         st
           { stateMode = OutputMode,
@@ -105,91 +162,122 @@ handleEvent voicePath speechVar eventChan event = do
             stateHistory = outputCommand ob : stateHistory st,
             stateInputBuffer = TextCursor.emptyTextCursor
           }
-      case outputLines ob of
-        (firstLine : _) -> speakLine voicePath speechVar firstLine
-        [] -> speakText voicePath speechVar "no output"
+      speakVoice voicePath speechVar statusVoice
     _ -> pure ()
+  where
+    vl = configVoiceLines config
+
+-- | Check if a key event matches a key combo
+matches :: Vty.Key -> [Vty.Modifier] -> KeyCombo -> Bool
+matches k mods (KeyCombo k' mods') = k == k' && mods == mods'
 
 handleInputMode ::
+  Config ->
   Path Abs File ->
   TVar (Maybe SpeechHandle) ->
   BChan AppEvent ->
   Vty.Key ->
   [Vty.Modifier] ->
   EventM ResourceName AppState ()
-handleInputMode voicePath speechVar eventChan key mods = case (key, mods) of
-  (Vty.KChar 'r', [Vty.MCtrl]) -> do
-    s <- get
-    let input = Text.unpack $ TextCursor.rebuildTextCursor (stateInputBuffer s)
-    speakText voicePath speechVar (if null input then "empty" else input)
-  (Vty.KEsc, []) -> do
-    liftIO $ cancelCurrentSpeech speechVar
-  (Vty.KEnter, []) -> do
-    s <- get
-    let cmd = TextCursor.rebuildTextCursor (stateInputBuffer s)
-    if Text.null cmd
-      then speakText voicePath speechVar "empty command"
-      else liftIO $ do
-        _ <- async $ do
-          result <- runShellCommand cmd
-          writeBChan eventChan (CommandComplete result)
-        pure ()
-  (Vty.KChar c, []) -> modifyBufferM $ TextCursor.textCursorInsert c
-  (Vty.KBS, []) -> modifyBufferDOU TextCursor.textCursorRemove
-  (Vty.KDel, []) -> modifyBufferDOU TextCursor.textCursorDelete
-  (Vty.KLeft, []) -> modifyBufferM TextCursor.textCursorSelectPrev
-  (Vty.KRight, []) -> modifyBufferM TextCursor.textCursorSelectNext
-  _ -> pure ()
+handleInputMode config voicePath speechVar eventChan k mods
+  | matches k mods (inputReadBuffer ib) = do
+      s <- get
+      let input = TextCursor.rebuildTextCursor (stateInputBuffer s)
+      if Text.null input
+        then speakVoice voicePath speechVar (voiceEmpty vl)
+        else speakText voicePath speechVar (Text.unpack input)
+  | matches k mods (inputCancelSpeech ib) =
+      liftIO $ cancelCurrentSpeech speechVar
+  | matches k mods (inputExecuteCommand ib) = do
+      s <- get
+      let cmd = TextCursor.rebuildTextCursor (stateInputBuffer s)
+      if Text.null cmd
+        then speakVoice voicePath speechVar (voiceEmptyCommand vl)
+        else do
+          speakVoice voicePath speechVar (voiceRun vl)
+          liftIO $ do
+            _ <- async $ do
+              result <- runShellCommand cmd
+              writeBChan eventChan (CommandComplete result)
+            pure ()
+  | matches k mods (inputDeleteBefore ib) =
+      modifyBufferDOU TextCursor.textCursorRemove
+  | matches k mods (inputDeleteAt ib) =
+      modifyBufferDOU TextCursor.textCursorDelete
+  | matches k mods (inputMoveCursorLeft ib) =
+      modifyBufferM TextCursor.textCursorSelectPrev
+  | matches k mods (inputMoveCursorRight ib) =
+      modifyBufferM TextCursor.textCursorSelectNext
+  -- Character insertion (catch-all for unmodified characters)
+  | Vty.KChar c <- k,
+    null mods =
+      modifyBufferM $ TextCursor.textCursorInsert c
+  | otherwise = pure ()
+  where
+    ib = configInputBindings config
+    vl = configVoiceLines config
 
 handleOutputMode ::
+  Config ->
   Path Abs File ->
   TVar (Maybe SpeechHandle) ->
   Vty.Key ->
   [Vty.Modifier] ->
   EventM ResourceName AppState ()
-handleOutputMode voicePath speechVar key mods = case (key, mods) of
-  (Vty.KChar '.', []) -> do
-    s <- get
-    case stateOutput s of
-      Nothing -> pure ()
-      Just ob ->
-        let idx = outputIndex ob
-         in if null (outputLines ob)
-              then speakText voicePath speechVar "no output"
-              else speakLine voicePath speechVar (outputLines ob !! idx)
-  (Vty.KChar 'j', []) -> do
-    s <- get
-    case stateOutput s of
-      Nothing -> pure ()
-      Just ob ->
-        let total = length (outputLines ob)
-            idx = outputIndex ob
-         in if idx >= total - 1
-              then speakText voicePath speechVar "bottom"
-              else do
-                let newIdx = idx + 1
-                modify $ \st -> st {stateOutput = Just ob {outputIndex = newIdx}}
-                speakLine voicePath speechVar (outputLines ob !! newIdx)
-  (Vty.KChar 'k', []) -> do
-    s <- get
-    case stateOutput s of
-      Nothing -> pure ()
-      Just ob ->
-        let idx = outputIndex ob
-         in if idx <= 0
-              then speakText voicePath speechVar "top"
-              else do
-                let newIdx = idx - 1
-                modify $ \st -> st {stateOutput = Just ob {outputIndex = newIdx}}
-                speakLine voicePath speechVar (outputLines ob !! newIdx)
-  (Vty.KEsc, []) -> do
-    liftIO $ cancelCurrentSpeech speechVar
-  (Vty.KChar 'i', []) -> do
-    modify $ \s -> s {stateMode = InputMode}
-    speakText voicePath speechVar "input mode"
-  (Vty.KChar 'q', []) -> halt
-  _ -> pure ()
+handleOutputMode config voicePath speechVar k mods
+  | matches k mods (outputReadLine ob) = do
+      s <- get
+      case stateOutput s of
+        Nothing -> pure ()
+        Just buf ->
+          let idx = outputIndex buf
+           in if null (outputLines buf)
+                then speakVoice voicePath speechVar (voiceNoOutput vl)
+                else speakLine voicePath speechVar (outputLines buf !! idx)
+  | matches k mods (outputNextLine ob) = do
+      s <- get
+      case stateOutput s of
+        Nothing -> pure ()
+        Just buf ->
+          let total = length (outputLines buf)
+              idx = outputIndex buf
+           in if idx >= total - 1
+                then speakVoice voicePath speechVar (voiceBottom vl)
+                else do
+                  let newIdx = idx + 1
+                  modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
+                  speakLine voicePath speechVar (outputLines buf !! newIdx)
+  | matches k mods (outputPreviousLine ob) = do
+      s <- get
+      case stateOutput s of
+        Nothing -> pure ()
+        Just buf ->
+          let idx = outputIndex buf
+           in if idx <= 0
+                then speakVoice voicePath speechVar (voiceTop vl)
+                else do
+                  let newIdx = idx - 1
+                  modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
+                  speakLine voicePath speechVar (outputLines buf !! newIdx)
+  | matches k mods (outputCancelSpeech ob) =
+      liftIO $ cancelCurrentSpeech speechVar
+  | matches k mods (outputEnterInputMode ob) = do
+      modify $ \s -> s {stateMode = InputMode}
+      speakVoice voicePath speechVar (voiceInputMode vl)
+  | matches k mods (outputQuit ob) = halt
+  | otherwise = pure ()
+  where
+    ob = configOutputBindings config
+    vl = configVoiceLines config
 
+-- | Speak a configured voice line
+speakVoice :: Path Abs File -> TVar (Maybe SpeechHandle) -> VoiceLine -> EventM ResourceName AppState ()
+speakVoice voicePath speechVar voiceLine = liftIO $ do
+  cancelCurrentSpeech speechVar
+  handle <- speakVoiceLineAsync voicePath voiceLine
+  atomically $ writeTVar speechVar (Just handle)
+
+-- | Speak arbitrary text (for dynamic content like user input or output lines)
 speakText :: Path Abs File -> TVar (Maybe SpeechHandle) -> String -> EventM ResourceName AppState ()
 speakText voicePath speechVar text = liftIO $ do
   cancelCurrentSpeech speechVar

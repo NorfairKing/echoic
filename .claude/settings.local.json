@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(nix flake check:*)"
+      "Bash(nix flake check:*)",
+      "Bash(stack test:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(nix build:*)",
+      "Bash(hpack)",
+      "Bash(cat:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

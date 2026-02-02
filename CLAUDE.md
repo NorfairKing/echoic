@@ -47,6 +47,8 @@ holds sound. The system echoes back what you need to know.
 
 Bootstrap phase - establishing project structure.
 
+First big milestone: be able to develop echoic in itself.
+
 ## Feedback loop
 
 These feedback loops are designed to give fast feedback during development.
