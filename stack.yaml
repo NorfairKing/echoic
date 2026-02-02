@@ -26,3 +26,13 @@ extra-deps:
     subdirs:
       - autodocodec
       - autodocodec-yaml
+
+  - github: NorfairKing/cursor
+    commit: 730bb65b21304e12fb712236d5a541c3774ed2ad
+    subdirs:
+      - cursor
+
+  - github: NorfairKing/cursor-brick
+    commit: 753454ed23f5fad216f4f1502b889a761dfb3a28
+    subdirs:
+      - cursor-brick

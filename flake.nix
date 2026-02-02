@@ -6,6 +6,10 @@
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
     autodocodec.url = "github:NorfairKing/autodocodec";
     autodocodec.flake = false;
+    cursor.url = "github:NorfairKing/cursor";
+    cursor.flake = false;
+    cursor-brick.url = "github:NorfairKing/cursor-brick";
+    cursor-brick.flake = false;
     safe-coloured-text.url = "github:NorfairKing/safe-coloured-text";
     safe-coloured-text.flake = false;
     opt-env-conf.url = "github:NorfairKing/opt-env-conf";
@@ -17,6 +21,8 @@
     , nixpkgs
     , pre-commit-hooks
     , autodocodec
+    , cursor
+    , cursor-brick
     , safe-coloured-text
     , opt-env-conf
     }:
@@ -27,6 +33,8 @@
         overlays = [
           self.overlays.default
           (import (autodocodec + "/nix/overlay.nix"))
+          (import (cursor + "/nix/overlay.nix"))
+          (import (cursor-brick + "/nix/overlay.nix"))
           (import (safe-coloured-text + "/nix/overlay.nix"))
           (import (opt-env-conf + "/nix/overlay.nix"))
         ];

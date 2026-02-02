@@ -16,6 +16,38 @@
         "type": "github"
       }
     },
+    "cursor": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1748513357,
+        "narHash": "sha256-ip/5e2xXO/gFGqC4QlugslH9/NVXeM7DYrG68npjTzA=",
+        "owner": "NorfairKing",
+        "repo": "cursor",
+        "rev": "730bb65b21304e12fb712236d5a541c3774ed2ad",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NorfairKing",
+        "repo": "cursor",
+        "type": "github"
+      }
+    },
+    "cursor-brick": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1748598366,
+        "narHash": "sha256-jYjjZ2dBuTz6R8LxK701hQf+E9sN6cB5Qdy3vBFSl3s=",
+        "owner": "NorfairKing",
+        "repo": "cursor-brick",
+        "rev": "753454ed23f5fad216f4f1502b889a761dfb3a28",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NorfairKing",
+        "repo": "cursor-brick",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -124,6 +156,8 @@
     "root": {
       "inputs": {
         "autodocodec": "autodocodec",
+        "cursor": "cursor",
+        "cursor-brick": "cursor-brick",
         "nixpkgs": "nixpkgs",
         "opt-env-conf": "opt-env-conf",
         "pre-commit-hooks": "pre-commit-hooks",

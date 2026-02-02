@@ -33,6 +33,8 @@ library
       base >=4.17 && <5
     , brick
     , bytestring
+    , cursor
+    , cursor-brick
     , mtl
     , opt-env-conf
     , path

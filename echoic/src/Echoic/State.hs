@@ -6,8 +6,9 @@ module Echoic.State
   )
 where
 
+import Cursor.Text (TextCursor)
+import qualified Cursor.Text as TextCursor
 import Data.Text (Text)
-import qualified Data.Text as Text
 
 data Mode
   = NormalMode
@@ -20,7 +21,7 @@ data ResourceName
 
 data AppState = AppState
   { stateMode :: !Mode,
-    stateInputBuffer :: !Text,
+    stateInputBuffer :: !TextCursor,
     stateHistory :: ![Text]
   }
   deriving (Show)
@@ -29,6 +30,6 @@ initialState :: AppState
 initialState =
   AppState
     { stateMode = NormalMode,
-      stateInputBuffer = Text.empty,
+      stateInputBuffer = TextCursor.emptyTextCursor,
       stateHistory = []
     }

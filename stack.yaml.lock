@@ -82,6 +82,32 @@ packages:
   original:
     subdir: autodocodec-yaml
     url: https://github.com/NorfairKing/autodocodec/archive/3dbe8d515c9fc0fe6313dfe92e9db1f4af4c50a3.tar.gz
+- completed:
+    name: cursor
+    pantry-tree:
+      sha256: 491196db4f7061cb2696bf9ac97ef582e40f152d66550c6ee593a7a626d7af22
+      size: 1872
+    sha256: cf5b26047e4e377a4fc7e4116c976b7904bc4a8c29c9aabc04f14b6d9f99f81d
+    size: 51192
+    subdir: cursor
+    url: https://github.com/NorfairKing/cursor/archive/730bb65b21304e12fb712236d5a541c3774ed2ad.tar.gz
+    version: 0.3.2.0
+  original:
+    subdir: cursor
+    url: https://github.com/NorfairKing/cursor/archive/730bb65b21304e12fb712236d5a541c3774ed2ad.tar.gz
+- completed:
+    name: cursor-brick
+    pantry-tree:
+      sha256: 21308290237da55f84db87c7465c43dd45e3de68ba29194040fb1ed141462941
+      size: 913
+    sha256: f1a0576511799b12a79b46d44e472676f39ad9e5098b1b499b748e09919c1126
+    size: 7008
+    subdir: cursor-brick
+    url: https://github.com/NorfairKing/cursor-brick/archive/753454ed23f5fad216f4f1502b889a761dfb3a28.tar.gz
+    version: 0.1.0.1
+  original:
+    subdir: cursor-brick
+    url: https://github.com/NorfairKing/cursor-brick/archive/753454ed23f5fad216f4f1502b889a761dfb3a28.tar.gz
 snapshots:
 - completed:
     sha256: 309392e77af949aff34933aff53070c774d274b0f2f7e314df665c0d322c7715
