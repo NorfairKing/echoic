@@ -1,0 +1,23 @@
+name: echoic
+version: 0.1.0.0
+synopsis: Blind computing environment
+description: Enable near-normal computing efficiency without vision.
+license: MIT
+author: syd
+
+executables:
+  echoic:
+    main: Main.hs
+    source-dirs: src
+    dependencies:
+      - base >= 4.17 && < 5
+      - bytestring
+      - text
+      - typed-process >= 0.2
+
+ghc-options:
+  - -Wall
+
+default-extensions:
+  - LambdaCase
+  - OverloadedStrings

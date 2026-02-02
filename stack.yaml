@@ -1,0 +1,9 @@
+resolver: lts-24.16
+
+packages:
+  - echoic
+
+system-ghc: true
+nix:
+  enable: false
+with-hpack: hpack

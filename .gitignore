@@ -1,0 +1,6 @@
+dist-newstyle/
+result
+.direnv/
+*.hi
+*.o
+.stack-work/
