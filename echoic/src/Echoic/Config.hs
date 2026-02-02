@@ -3,6 +3,7 @@ module Echoic.Config
     KeyCombo (..),
 
     -- * Keybinding records
+    GlobalBindings (..),
     InputBindings (..),
     OutputBindings (..),
 
@@ -30,16 +31,23 @@ import Path (Abs, File, Path)
 
 -- | Complete configuration
 data Config = Config
-  { configInputBindings :: !InputBindings,
+  { configGlobalBindings :: !GlobalBindings,
+    configInputBindings :: !InputBindings,
     configOutputBindings :: !OutputBindings,
     configVoiceLines :: !VoiceLines
+  }
+  deriving (Show)
+
+-- | Keybindings that work in every mode
+data GlobalBindings = GlobalBindings
+  { globalCancelSpeech :: !KeyCombo,
+    globalListKeys :: !KeyCombo
   }
   deriving (Show)
 
 -- | Keybindings for input mode (command entry)
 data InputBindings = InputBindings
   { inputReadBuffer :: !KeyCombo,
-    inputCancelSpeech :: !KeyCombo,
     inputExecuteCommand :: !KeyCombo,
     inputDeleteBefore :: !KeyCombo,
     inputDeleteAt :: !KeyCombo,
@@ -53,7 +61,6 @@ data OutputBindings = OutputBindings
   { outputReadLine :: !KeyCombo,
     outputNextLine :: !KeyCombo,
     outputPreviousLine :: !KeyCombo,
-    outputCancelSpeech :: !KeyCombo,
     outputEnterInputMode :: !KeyCombo,
     outputQuit :: !KeyCombo
   }

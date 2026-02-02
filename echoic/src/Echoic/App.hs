@@ -8,6 +8,7 @@ import Brick
 import Brick.BChan (BChan, writeBChan)
 import Control.Concurrent.Async (async)
 import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
+import Control.Monad (unless)
 import Control.Monad.IO.Class (liftIO)
 import Cursor.Brick.Text (selectedTextCursorWidget)
 import Cursor.Text (TextCursor)
@@ -59,11 +60,14 @@ drawInputMode config s =
             <> ": read | "
             <> showKeyCombo (inputExecuteCommand ib)
             <> ": run | "
-            <> showKeyCombo (inputCancelSpeech ib)
-            <> ": cancel]"
+            <> showKeyCombo (globalCancelSpeech gb)
+            <> ": cancel | "
+            <> showKeyCombo (globalListKeys gb)
+            <> ": keys]"
       ]
   ]
   where
+    gb = configGlobalBindings config
     ib = configInputBindings config
 
 drawOutputMode :: Config -> AppState -> [Widget ResourceName]
@@ -71,7 +75,17 @@ drawOutputMode config s =
   [ vBox $
       case stateOutput s of
         Nothing ->
-          [str "No output", str " ", str $ "[" <> showKeyCombo (outputEnterInputMode ob') <> ": input | " <> showKeyCombo (outputQuit ob') <> ": quit]"]
+          [ str "No output",
+            str " ",
+            str $
+              "["
+                <> showKeyCombo (outputEnterInputMode ob')
+                <> ": input | "
+                <> showKeyCombo (outputQuit ob')
+                <> ": quit | "
+                <> showKeyCombo (globalListKeys gb)
+                <> ": keys]"
+          ]
         Just ob ->
           let total = length (outputLines ob)
               idx = outputIndex ob
@@ -92,15 +106,18 @@ drawOutputMode config s =
                     <> ": navigate | "
                     <> showKeyCombo (outputReadLine ob')
                     <> ": read | "
-                    <> showKeyCombo (outputCancelSpeech ob')
+                    <> showKeyCombo (globalCancelSpeech gb)
                     <> ": cancel | "
                     <> showKeyCombo (outputEnterInputMode ob')
                     <> ": input | "
                     <> showKeyCombo (outputQuit ob')
-                    <> ": quit]"
+                    <> ": quit | "
+                    <> showKeyCombo (globalListKeys gb)
+                    <> ": keys]"
               ]
   ]
   where
+    gb = configGlobalBindings config
     ob' = configOutputBindings config
 
 -- | Show a key combo in human-readable format
@@ -139,10 +156,13 @@ handleEvent ::
 handleEvent config voicePath speechVar eventChan event = do
   s <- get
   case event of
-    VtyEvent (Vty.EvKey k mods) ->
-      case stateMode s of
-        InputMode -> handleInputMode config voicePath speechVar eventChan k mods
-        OutputMode -> handleOutputMode config voicePath speechVar k mods
+    VtyEvent (Vty.EvKey k mods) -> do
+      -- Try global bindings first, then mode-specific
+      handled <- handleGlobalBindings config voicePath speechVar k mods
+      unless handled $
+        case stateMode s of
+          InputMode -> handleInputMode config voicePath speechVar eventChan k mods
+          OutputMode -> handleOutputMode config voicePath speechVar k mods
     AppEvent (CommandComplete result) -> do
       let allLines = resultStdout result <> resultStderr result
           ob =
@@ -171,6 +191,73 @@ handleEvent config voicePath speechVar eventChan event = do
 matches :: Vty.Key -> [Vty.Modifier] -> KeyCombo -> Bool
 matches k mods (KeyCombo k' mods') = k == k' && mods == mods'
 
+-- | Handle global keybindings (work in all modes)
+-- Returns True if the key was handled
+handleGlobalBindings ::
+  Config ->
+  Path Abs File ->
+  TVar (Maybe SpeechHandle) ->
+  Vty.Key ->
+  [Vty.Modifier] ->
+  EventM ResourceName AppState Bool
+handleGlobalBindings config voicePath speechVar k mods
+  | matches k mods (globalCancelSpeech gb) = do
+      liftIO $ cancelCurrentSpeech speechVar
+      pure True
+  | matches k mods (globalListKeys gb) = do
+      s <- get
+      let description = describeKeysForMode config (stateMode s)
+      speakText voicePath speechVar description
+      pure True
+  | otherwise = pure False
+  where
+    gb = configGlobalBindings config
+
+-- | Generate a spoken description of available keys for a mode
+describeKeysForMode :: Config -> Mode -> String
+describeKeysForMode config mode =
+  globalDesc <> ". " <> modeDesc
+  where
+    gb = configGlobalBindings config
+    globalDesc =
+      showKeyCombo (globalCancelSpeech gb)
+        <> " cancel speech. "
+        <> showKeyCombo (globalListKeys gb)
+        <> " list keys"
+    modeDesc = case mode of
+      InputMode -> describeInputKeys (configInputBindings config)
+      OutputMode -> describeOutputKeys (configOutputBindings config)
+
+-- | Describe input mode keybindings
+describeInputKeys :: InputBindings -> String
+describeInputKeys ib =
+  showKeyCombo (inputReadBuffer ib)
+    <> " read input. "
+    <> showKeyCombo (inputExecuteCommand ib)
+    <> " run command. "
+    <> showKeyCombo (inputDeleteBefore ib)
+    <> " delete before. "
+    <> showKeyCombo (inputDeleteAt ib)
+    <> " delete at cursor. "
+    <> showKeyCombo (inputMoveCursorLeft ib)
+    <> " move left. "
+    <> showKeyCombo (inputMoveCursorRight ib)
+    <> " move right"
+
+-- | Describe output mode keybindings
+describeOutputKeys :: OutputBindings -> String
+describeOutputKeys ob =
+  showKeyCombo (outputReadLine ob)
+    <> " read line. "
+    <> showKeyCombo (outputNextLine ob)
+    <> " next line. "
+    <> showKeyCombo (outputPreviousLine ob)
+    <> " previous line. "
+    <> showKeyCombo (outputEnterInputMode ob)
+    <> " input mode. "
+    <> showKeyCombo (outputQuit ob)
+    <> " quit"
+
 handleInputMode ::
   Config ->
   Path Abs File ->
@@ -186,8 +273,6 @@ handleInputMode config voicePath speechVar eventChan k mods
       if Text.null input
         then speakVoice voicePath speechVar (voiceEmpty vl)
         else speakText voicePath speechVar (Text.unpack input)
-  | matches k mods (inputCancelSpeech ib) =
-      liftIO $ cancelCurrentSpeech speechVar
   | matches k mods (inputExecuteCommand ib) = do
       s <- get
       let cmd = TextCursor.rebuildTextCursor (stateInputBuffer s)
@@ -259,8 +344,6 @@ handleOutputMode config voicePath speechVar k mods
                   let newIdx = idx - 1
                   modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
                   speakLine voicePath speechVar (outputLines buf !! newIdx)
-  | matches k mods (outputCancelSpeech ob) =
-      liftIO $ cancelCurrentSpeech speechVar
   | matches k mods (outputEnterInputMode ob) = do
       modify $ \s -> s {stateMode = InputMode}
       speakVoice voicePath speechVar (voiceInputMode vl)

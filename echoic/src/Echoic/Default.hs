@@ -1,5 +1,6 @@
 module Echoic.Default
   ( defaultConfig,
+    defaultGlobalBindings,
     defaultInputBindings,
     defaultOutputBindings,
     defaultVoiceLines,
@@ -13,15 +14,26 @@ import qualified Graphics.Vty as Vty
 defaultConfig :: Config
 defaultConfig =
   Config
-    { configInputBindings = defaultInputBindings,
+    { configGlobalBindings = defaultGlobalBindings,
+      configInputBindings = defaultInputBindings,
       configOutputBindings = defaultOutputBindings,
       configVoiceLines = defaultVoiceLines
+    }
+
+-- | Default keybindings that work in every mode
+--
+-- Esc: cancel speech
+-- ?: list available keys
+defaultGlobalBindings :: GlobalBindings
+defaultGlobalBindings =
+  GlobalBindings
+    { globalCancelSpeech = key Vty.KEsc,
+      globalListKeys = char '?'
     }
 
 -- | Default keybindings for input mode
 --
 -- Ctrl+R: read current input
--- Esc: cancel speech
 -- Enter: execute command
 -- Backspace: delete before cursor
 -- Delete: delete at cursor
@@ -31,7 +43,6 @@ defaultInputBindings :: InputBindings
 defaultInputBindings =
   InputBindings
     { inputReadBuffer = ctrl 'r',
-      inputCancelSpeech = key Vty.KEsc,
       inputExecuteCommand = key Vty.KEnter,
       inputDeleteBefore = key Vty.KBS,
       inputDeleteAt = key Vty.KDel,
@@ -44,16 +55,14 @@ defaultInputBindings =
 -- .: read current line
 -- j: next line
 -- k: previous line
--- Esc: cancel speech
 -- i: enter input mode
--- q: quit
+-- Ctrl+D: quit
 defaultOutputBindings :: OutputBindings
 defaultOutputBindings =
   OutputBindings
     { outputReadLine = char '.',
       outputNextLine = char 'j',
       outputPreviousLine = char 'k',
-      outputCancelSpeech = key Vty.KEsc,
       outputEnterInputMode = char 'i',
       outputQuit = ctrl 'd'
     }
