@@ -1,6 +1,6 @@
-{ mkDerivation, base, brick, bytestring, cursor, cursor-brick, lib
-, mtl, opt-env-conf, path, text, typed-process, vty
-, vty-crossplatform
+{ mkDerivation, async, base, brick, bytestring, cursor
+, cursor-brick, lib, mtl, opt-env-conf, path, stm, text
+, typed-process, vty, vty-crossplatform
 }:
 mkDerivation {
   pname = "echoic";
@@ -9,8 +9,8 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    base brick bytestring cursor cursor-brick mtl opt-env-conf path
-    text typed-process vty vty-crossplatform
+    async base brick bytestring cursor cursor-brick mtl opt-env-conf
+    path stm text typed-process vty vty-crossplatform
   ];
   executableHaskellDepends = [ base ];
   description = "Blind computing environment";

@@ -19,6 +19,8 @@ library
       Echoic.App
       Echoic.Env
       Echoic.OptParse
+      Echoic.Shell
+      Echoic.Speech
       Echoic.State
   other-modules:
       Paths_echoic
@@ -30,7 +32,8 @@ library
       RecordWildCards
   ghc-options: -Wall
   build-depends:
-      base >=4.17 && <5
+      async
+    , base >=4.17 && <5
     , brick
     , bytestring
     , cursor
@@ -38,6 +41,7 @@ library
     , mtl
     , opt-env-conf
     , path
+    , stm
     , text
     , typed-process >=0.2
     , vty
