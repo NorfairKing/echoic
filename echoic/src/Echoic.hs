@@ -1,12 +1,17 @@
 module Echoic (runEchoic) where
 
+import Brick
 import Control.Monad.IO.Class
 import Data.ByteString (hGetSome, hPut)
 import qualified Data.ByteString as SB
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LTE
+import Echoic.App
 import Echoic.Env
 import Echoic.OptParse
+import Echoic.State
+import qualified Graphics.Vty as V
+import qualified Graphics.Vty.CrossPlatform as VCP
 import Path
 import System.IO (hClose)
 import System.Process.Typed
@@ -16,7 +21,11 @@ runEchoic = do
   Settings {..} <- getSettings
   let env = EchoicEnv {envVoicePath = settingVoicePath}
   runEchoicM env $ do
-    speak "Hello, world. Echoic is ready."
+    speak "Echoic ready. Normal mode."
+  let buildVty = VCP.mkVty V.defaultConfig
+  vty <- buildVty
+  _finalState <- customMain vty buildVty Nothing echoicApp initialState
+  pure ()
 
 speak :: String -> EchoicM ()
 speak text = do

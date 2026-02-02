@@ -11,12 +11,15 @@ dependencies:
 library:
   source-dirs: src
   dependencies:
+    - brick
     - bytestring
     - mtl
     - opt-env-conf
     - path
     - text
     - typed-process >= 0.2
+    - vty
+    - vty-crossplatform
 
 executables:
   echoic:
