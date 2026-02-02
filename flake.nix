@@ -4,12 +4,21 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    autodocodec.url = "github:NorfairKing/autodocodec";
+    autodocodec.flake = false;
+    safe-coloured-text.url = "github:NorfairKing/safe-coloured-text";
+    safe-coloured-text.flake = false;
+    opt-env-conf.url = "github:NorfairKing/opt-env-conf";
+    opt-env-conf.flake = false;
   };
 
   outputs =
     { self
     , nixpkgs
     , pre-commit-hooks
+    , autodocodec
+    , safe-coloured-text
+    , opt-env-conf
     }:
     let
       system = "x86_64-linux";
@@ -17,6 +26,12 @@
         inherit system;
         overlays = [
           self.overlays.default
+          (import (autodocodec + "/nix/overlay.nix"))
+          (import (safe-coloured-text + "/nix/overlay.nix"))
+          (import (opt-env-conf + "/nix/overlay.nix"))
+        ];
+        config.allowUnfreePredicate = pkg: builtins.elem (pkgs.lib.getName pkg) [
+          "echoic"
         ];
       };
     in

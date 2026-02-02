@@ -1,0 +1,337 @@
+- ignore:
+    name: "Use newtype instead of data"
+
+- modules:
+  - name: Data.Map
+    within: []
+    message: "Use Data.Map.Strict instead."
+  - name: Control.Monad.Logger
+    within: []
+    message: "Use Control.Monad.Logger.CallStack instead."
+  - name: Data.Text
+    as:
+    - Text
+    - Strict
+    importStyle: explicitOrQualified
+  - name: Data.Text.Lazy
+    as:
+    - LT
+    - Lazy
+    importStyle: explicitOrQualified
+  - name: Data.Text.Lazy.Builder
+    as:
+    - LTB
+    - Builder
+    - Text
+    importStyle: explicitOrQualified
+  - name: Data.ByteString
+    as:
+    - SB
+    - ByteString
+    - Strict
+    importStyle: explicitOrQualified
+  - name: Data.ByteString.Lazy
+    as:
+    - LB
+    - Lazy
+    importStyle: explicitOrQualified
+  - name: Data.ByteString.Builder
+    as:
+    - BB
+    - Builder
+    - ByteString
+    importStyle: explicitOrQualified
+  - name: Data.Binary.Builder
+    as:
+    - BB
+    - Builder
+    - Binary
+    importStyle: explicitOrQualified
+
+  - name: Data.Map.Strict
+    as: [Map]
+    importStyle: explicitOrQualified
+  - name: Data.Set
+    as: [Set]
+    importStyle: explicitOrQualified
+  - name: Data.Vector
+    as: [Vector]
+    importStyle: explicitOrQualified
+  - name: Data.List.NonEmpty
+    as: [NE, NonEmpty]
+    importStyle: explicitOrQualified
+
+  - name: Data.Conduit.Combinators
+    as: [C]
+    importStyle: qualified
+
+  - name: Database.Persist
+    as: [DB]
+  - name: Database.Persist.Sql
+    as: [DB]
+  - name: Database.Esqueleto.Experimental
+    as: [E]
+
+  - name: Data.Aeson
+    as: [JSON]
+  - name: Data.Aeson.Types
+    as: [JSON]
+  - name: Data.Aeson.Encode.Pretty
+    as: [JSON]
+
+  - name: Network.HTTP.Client
+    as: [HTTP]
+  - name: Network.HTTP.Types
+    as: [HTTP]
+
+  - name: GitHub.Extended
+    as: [GitHub]
+  - name: GitLab.Extended
+    as: [GitLab]
+  - name: Codeberg.Extended
+    as: [Codeberg]
+
+# Note: Every entry here needs to have a 'within: []' otherwise it does nothing.
+- functions:
+    - name: logDebugN
+      message: Use Control.Monad.Logger.CallStack.logDebug instead.
+      within: []
+    - name: logInfoN
+      message: Use Control.Monad.Logger.CallStack.logInfo instead.
+      within: []
+    - name: logWarnN
+      message: Use Control.Monad.Logger.CallStack.logWarn instead.
+      within: []
+    - name: logErrorN
+      message: Use Control.Monad.Logger.CallStack.logWarn instead.
+      within: []
+
+    - name: selectSource
+      message: Use Database.Persist.Pagination instead.
+      within: []
+    - name: selectSourceRes
+      message: Use Database.Persist.Pagination instead.
+      within: []
+    - name: selectKeys
+      message: Use Database.Persist.Pagination instead.
+      within: []
+    - name: selectKeysRes
+      message: Use Database.Persist.Pagination instead.
+      within: []
+
+    - name: unsafeDupablePerformIO
+      message: "Unsafe. Avoid unless absolutely necessary."
+      within: []
+    - name: unsafeInterleaveIO
+      message: "Unsafe lazy IO. Avoid unless absolutely necessary."
+      within: []
+    - name: unsafeFixIO
+      message: "Unsafe. Avoid unless absolutely necessary."
+      within: []
+    - name: unsafePerformIO
+      message: "Unsafe. Avoid unless absolutely necessary."
+      within: []
+    - name: forkIO
+      message: "Use 'async' from the async package or 'forkIO' from UnliftIO instead."
+      within: []
+    - name: forkProcess
+      message: "Mostly impossible to get right. See https://www.reddit.com/r/haskell/comments/jsap9r/how_dangerous_is_forkprocess/"
+      within: []
+    - name: throw
+      message: "Don't throw from pure code. Use 'throwIO' instead."
+      within: []
+    - name: Prelude.error
+      message: "Use 'throwIO' or 'undefined' instead."
+      within: []
+    - name: Data.List.head
+      message: "Partial function. Use 'listToMaybe' instead."
+      within: []
+    - name: Data.List.tail
+      message: "Partial function. Use pattern matching instead."
+      within: []
+    - name: Data.List.init
+      message: "Partial function. Use 'NonEmpty' or pattern matching instead."
+      within: []
+    - name: Data.List.last
+      message: "Partial function. Use 'NonEmpty' or pattern matching instead."
+      within: []
+    - name: 'Data.List.!!'
+      message: "Partial function. Use 'lookup' or 'Map' instead."
+      within: []
+    - name: Data.List.genericIndex
+      message: "Partial function. Use 'lookup' or 'Map' instead."
+      within: []
+    - name: Data.Text.head
+      message: "Partial function. Use 'Text.uncons' instead."
+      within: []
+    - name: Data.Text.tail
+      message: "Partial function. Use 'Text.uncons' instead."
+      within: []
+    - name: Data.Text.init
+      message: "Partial function. Use 'Text.unsnoc' instead."
+      within: []
+    - name: Data.Text.last
+      message: "Partial function. Use 'Text.unsnoc' instead."
+      within: []
+    - name: minimumBy
+      message: "Partial function. Use 'minimumByMay' from safe or pattern matching."
+      within: []
+    - name: maximumBy
+      message: "Partial function. Use 'maximumByMay' from safe or pattern matching."
+      within: []
+    - name: Data.Text.maximum
+      message: "Partial function. Use pattern matching instead."
+      within: []
+    - name: Data.Text.minimum
+      message: "Partial function. Use pattern matching instead."
+      within: []
+    - name: GHC.Enum.pred
+      message: "Partial function. Can fail at minBound."
+      within: []
+    - name: GHC.Enum.succ
+      message: "Partial function. Can fail at maxBound."
+      within: []
+    - name: GHC.Enum.toEnum
+      message: "Partial function. Use 'toEnumMay' or bounded checks."
+      within: []
+    - name: GHC.Enum.fromEnum
+      message: "Does not do what you think. Use explicit conversion functions."
+      within: []
+    - name: GHC.Enum.enumFrom
+      message: "Behavior varies by type. Use explicit range functions."
+      within: []
+    - name: GHC.Enum.enumFromThen
+      message: "Behavior varies by type. Use explicit range functions."
+      within: []
+    - name: GHC.Enum.enumFromTo
+      message: "Behavior varies by type. Use explicit range functions."
+      within: []
+    - name: GHC.Enum.enumFromThenTo
+      message: "Behavior varies by type. Use explicit range functions."
+      within: []
+    - name: Data.Foldable.foldl
+      message: "Lazy accumulator causes space leaks. Use 'foldl'' instead."
+      within: []
+    - name: Data.Foldable.sum
+      message: "Lazy accumulator causes space leaks. Use 'foldl'' with explicit addition."
+      within: []
+    - name: Data.Foldable.product
+      message: "Lazy accumulator causes space leaks. Use 'foldl'' with explicit multiplication."
+      within: []
+
+    # Don't use String for command-line I/O. Use Text or ByteString instead.
+    - name: System.IO.putChar
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.putStr
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.putStrLn
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.print
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.getChar
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.getLine
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.getContents
+      message: "Uses String and lazy IO. Use strict Text/ByteString I/O instead."
+      within: []
+    - name: System.IO.interact
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.readIO
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.readLn
+      message: "Uses String. Use Text-based I/O instead."
+      within: []
+    - name: System.IO.readFile
+      message: "Uses String. Use ByteString.readFile and decode explicitly."
+      within: []
+    - name: System.IO.writeFile
+      message: "Uses String. Use ByteString.writeFile and encode explicitly."
+      within: []
+    - name: System.IO.appendFile
+      message: "Uses String. Use ByteString.appendFile and encode explicitly."
+      within: []
+    - name: Data.Text.Encoding.decodeUtf8
+      message: Throws on invalid UTF-8. Use decodeUtf8' or decodeUtf8Lenient instead.
+      within: []
+    - name: Data.Text.IO.readFile
+      message: "Uses encoding guessing and lazy IO. Use ByteString.readFile and decode explicitly. See https://www.snoyman.com/blog/2016/12/beware-of-readfile/"
+      within: []
+    - name: Data.Text.IO.Lazy.readFile
+      message: "Uses encoding guessing and lazy IO. Use ByteString.readFile and decode explicitly. See https://www.snoyman.com/blog/2016/12/beware-of-readfile/"
+      within: []
+
+    # Note: 'undefined' is NOT banned because we use the "undefined trick"
+    # for exhaustiveness checking. See CLAUDE.md for details.
+    # Example: let TestConfiguration _ _ _ = undefined in ...
+
+    # Partial functions
+    - name: fromJust
+      message: "Partial function. Use pattern matching or 'maybe' instead."
+      within: []
+    - name: read
+      message: "Partial function. Use 'readMaybe' from Text.Read instead."
+      within: []
+
+    # Prelude.minimum and Prelude.maximum are partial (fail on empty).
+    # Use Foldable1.minimum/maximum from Data.Foldable1 with NonEmpty instead.
+    - name: Prelude.minimum
+      message: "Partial function. Use 'Foldable1.minimum' from Data.Foldable1 with NonEmpty instead."
+      within: []
+    - name: Prelude.maximum
+      message: "Partial function. Use 'Foldable1.maximum' from Data.Foldable1 with NonEmpty instead."
+      within: []
+
+    # Division - partial on division by zero, overflow with minBound/-1
+    - name: quot
+      message: "Partial: fails on division by zero, overflows with minBound/-1."
+      within: []
+    - name: div
+      message: "Partial: fails on division by zero, overflows with minBound/-1."
+      within: []
+    - name: rem
+      message: "Partial: fails on division by zero."
+      within: []
+    - name: mod
+      message: "Partial: fails on division by zero."
+      within: []
+    - name: divMod
+      message: "Partial: fails on division by zero, overflows with minBound/-1."
+      within: []
+    - name: quotRem
+      message: "Partial: fails on division by zero, overflows with minBound/-1."
+      within: []
+
+    - name: fromIntegral
+      message: "Polymorphic conversion can silently overflow/truncate."
+      within: []
+    - name: fromInteger
+      message: "Polymorphic conversion can silently overflow/truncate."
+      within: []
+    - name: realToFrac
+      message: "Polymorphic conversion can lose precision."
+      within: []
+
+- extensions:
+    - name: DeriveAnyClass
+      message: "Can produce unexpected runtime behavior. Use explicit instances or DerivingVia."
+    - name: DuplicateRecordFields
+      message: "Causes ambiguous field access. Use qualified imports or unique field names."
+      within: []
+    - name: NamedFieldPuns
+      message: "Reduces code clarity. Use explicit record field syntax."
+      within: []
+    - name: TupleSections
+      message: "Reduces code clarity. Use explicit lambdas or functions."
+      within: []
+    - name: OverloadedLabels
+      message: "Not used in this codebase."
+      within: []

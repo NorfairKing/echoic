@@ -20,7 +20,7 @@ holds sound. The system echoes back what you need to know.
   Must be practical for real, sustained work.
 - **Learn while sighted**: Usable and worth using now, building muscle
   memory for the future.
-- **Audio is primary**: Everything meaningful must be speakable.
+- **Audio is primary**: Everything meaningful must be audible.
 - **Keyboard-only**: Touch typing assumed. No mouse dependency.
 - **Hybrid integration**: Wrap existing tools where muscle memory exists,
   build new where audio-native design wins.

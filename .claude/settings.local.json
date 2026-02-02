@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(nix develop:*)"
+      "Bash(nix flake update:*)"
     ],
     "deny": [],
     "ask": []
