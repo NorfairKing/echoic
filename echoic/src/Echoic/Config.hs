@@ -1,11 +1,19 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Echoic.Config
   ( -- * Key combinations
     KeyCombo (..),
+    showKeyCombo,
 
     -- * Keybinding records
     GlobalBindings (..),
     InputBindings (..),
     OutputBindings (..),
+
+    -- * Bindings as lists (for UI and speech)
+    globalBindingsList,
+    inputBindingsList,
+    outputBindingsList,
 
     -- * Voice lines
     VoiceLine (..),
@@ -18,6 +26,7 @@ module Echoic.Config
     key,
     char,
     ctrl,
+    ctrlShift,
 
     -- * Helpers for defining voice lines
     say,
@@ -41,7 +50,8 @@ data Config = Config
 -- | Keybindings that work in every mode
 data GlobalBindings = GlobalBindings
   { globalCancelSpeech :: !KeyCombo,
-    globalListKeys :: !KeyCombo
+    globalListKeys :: !KeyCombo,
+    globalQuit :: !KeyCombo
   }
   deriving (Show)
 
@@ -61,8 +71,7 @@ data OutputBindings = OutputBindings
   { outputReadLine :: !KeyCombo,
     outputNextLine :: !KeyCombo,
     outputPreviousLine :: !KeyCombo,
-    outputEnterInputMode :: !KeyCombo,
-    outputQuit :: !KeyCombo
+    outputEnterInputMode :: !KeyCombo
   }
   deriving (Show)
 
@@ -106,6 +115,63 @@ char c = KeyCombo (Vty.KChar c) []
 ctrl :: Char -> KeyCombo
 ctrl c = KeyCombo (Vty.KChar c) [Vty.MCtrl]
 
+-- | Create a key combo from a character with Ctrl+Shift modifiers
+ctrlShift :: Char -> KeyCombo
+ctrlShift c = KeyCombo (Vty.KChar c) [Vty.MCtrl, Vty.MShift]
+
 -- | Create a spoken voice line from a string
 say :: String -> VoiceLine
 say = VoiceLineSpoken . Text.pack
+
+-- | Show a key combo in human-readable format
+showKeyCombo :: KeyCombo -> String
+showKeyCombo (KeyCombo k mods) =
+  concatMap showMod mods <> showKey k
+  where
+    showMod = \case
+      Vty.MCtrl -> "Ctrl+"
+      Vty.MMeta -> "Meta+"
+      Vty.MAlt -> "Alt+"
+      Vty.MShift -> "Shift+"
+    showKey = \case
+      Vty.KChar c -> [c]
+      Vty.KEsc -> "Esc"
+      Vty.KEnter -> "Enter"
+      Vty.KBS -> "Backspace"
+      Vty.KDel -> "Delete"
+      Vty.KLeft -> "Left"
+      Vty.KRight -> "Right"
+      Vty.KUp -> "Up"
+      Vty.KDown -> "Down"
+      Vty.KHome -> "Home"
+      Vty.KEnd -> "End"
+      Vty.KPageUp -> "PageUp"
+      Vty.KPageDown -> "PageDown"
+      _ -> "?"
+
+-- | Convert global bindings to a list of (key, description) pairs
+globalBindingsList :: GlobalBindings -> [(String, String)]
+globalBindingsList gb =
+  [ (showKeyCombo (globalCancelSpeech gb), "cancel"),
+    (showKeyCombo (globalListKeys gb), "keys"),
+    (showKeyCombo (globalQuit gb), "quit")
+  ]
+
+-- | Convert input bindings to a list of (key, description) pairs
+inputBindingsList :: InputBindings -> [(String, String)]
+inputBindingsList ib =
+  [ (showKeyCombo (inputReadBuffer ib), "read"),
+    (showKeyCombo (inputExecuteCommand ib), "run"),
+    (showKeyCombo (inputDeleteBefore ib), "delete before"),
+    (showKeyCombo (inputDeleteAt ib), "delete at cursor"),
+    (showKeyCombo (inputMoveCursorLeft ib), "move left"),
+    (showKeyCombo (inputMoveCursorRight ib), "move right")
+  ]
+
+-- | Convert output bindings to a list of (key, description) pairs
+outputBindingsList :: OutputBindings -> [(String, String)]
+outputBindingsList ob =
+  [ (showKeyCombo (outputReadLine ob), "read"),
+    (showKeyCombo (outputNextLine ob) <> "/" <> showKeyCombo (outputPreviousLine ob), "navigate"),
+    (showKeyCombo (outputEnterInputMode ob), "input")
+  ]

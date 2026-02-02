@@ -24,11 +24,13 @@ defaultConfig =
 --
 -- Esc: cancel speech
 -- ?: list available keys
+-- Ctrl+Shift+D: quit
 defaultGlobalBindings :: GlobalBindings
 defaultGlobalBindings =
   GlobalBindings
     { globalCancelSpeech = key Vty.KEsc,
-      globalListKeys = char '?'
+      globalListKeys = char '?',
+      globalQuit = ctrl 'd'
     }
 
 -- | Default keybindings for input mode
@@ -56,15 +58,13 @@ defaultInputBindings =
 -- j: next line
 -- k: previous line
 -- i: enter input mode
--- Ctrl+D: quit
 defaultOutputBindings :: OutputBindings
 defaultOutputBindings =
   OutputBindings
     { outputReadLine = char '.',
       outputNextLine = char 'j',
       outputPreviousLine = char 'k',
-      outputEnterInputMode = char 'i',
-      outputQuit = ctrl 'd'
+      outputEnterInputMode = char 'i'
     }
 
 -- | Default voice lines

@@ -15,6 +15,7 @@ import Cursor.Text (TextCursor)
 import qualified Cursor.Text as TextCursor
 import Cursor.Types (DeleteOrUpdate (..))
 import Data.Foldable (for_)
+import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -51,41 +52,24 @@ drawUI config s = case stateMode s of
 
 drawInputMode :: Config -> AppState -> [Widget ResourceName]
 drawInputMode config s =
-  [ vBox
+  [ vBox $
       [ str "$ " <+> selectedTextCursorWidget MainViewport (stateInputBuffer s),
-        str " ",
-        str $
-          "["
-            <> showKeyCombo (inputReadBuffer ib)
-            <> ": read | "
-            <> showKeyCombo (inputExecuteCommand ib)
-            <> ": run | "
-            <> showKeyCombo (globalCancelSpeech gb)
-            <> ": cancel | "
-            <> showKeyCombo (globalListKeys gb)
-            <> ": keys]"
+        str " "
       ]
+        <> formatBindingsForUI bindings
   ]
   where
-    gb = configGlobalBindings config
-    ib = configInputBindings config
+    bindings =
+      take 2 (inputBindingsList (configInputBindings config))
+        <> globalBindingsList (configGlobalBindings config)
 
 drawOutputMode :: Config -> AppState -> [Widget ResourceName]
 drawOutputMode config s =
   [ vBox $
       case stateOutput s of
         Nothing ->
-          [ str "No output",
-            str " ",
-            str $
-              "["
-                <> showKeyCombo (outputEnterInputMode ob')
-                <> ": input | "
-                <> showKeyCombo (outputQuit ob')
-                <> ": quit | "
-                <> showKeyCombo (globalListKeys gb)
-                <> ": keys]"
-          ]
+          [str "No output", str " "]
+            <> formatBindingsForUI minimalBindings
         Just ob ->
           let total = length (outputLines ob)
               idx = outputIndex ob
@@ -97,54 +81,25 @@ drawOutputMode config s =
                 str $ "Line " <> show (idx + 1) <> "/" <> show (max 1 total),
                 str " ",
                 str currentLine,
-                str " ",
-                str $
-                  "["
-                    <> showKeyCombo (outputNextLine ob')
-                    <> "/"
-                    <> showKeyCombo (outputPreviousLine ob')
-                    <> ": navigate | "
-                    <> showKeyCombo (outputReadLine ob')
-                    <> ": read | "
-                    <> showKeyCombo (globalCancelSpeech gb)
-                    <> ": cancel | "
-                    <> showKeyCombo (outputEnterInputMode ob')
-                    <> ": input | "
-                    <> showKeyCombo (outputQuit ob')
-                    <> ": quit | "
-                    <> showKeyCombo (globalListKeys gb)
-                    <> ": keys]"
+                str " "
               ]
+                <> formatBindingsForUI fullBindings
   ]
   where
-    gb = configGlobalBindings config
-    ob' = configOutputBindings config
+    fullBindings =
+      outputBindingsList (configOutputBindings config)
+        <> globalBindingsList (configGlobalBindings config)
+    minimalBindings =
+      drop 2 (outputBindingsList (configOutputBindings config))
+        <> [last (globalBindingsList (configGlobalBindings config))]
 
--- | Show a key combo in human-readable format
-showKeyCombo :: KeyCombo -> String
-showKeyCombo (KeyCombo k mods) =
-  modPrefix <> keyStr
-  where
-    modPrefix = concatMap showMod mods
-    showMod Vty.MCtrl = "Ctrl+"
-    showMod Vty.MMeta = "Meta+"
-    showMod Vty.MAlt = "Alt+"
-    showMod Vty.MShift = "Shift+"
-    keyStr = case k of
-      Vty.KChar c -> [c]
-      Vty.KEsc -> "Esc"
-      Vty.KEnter -> "Enter"
-      Vty.KBS -> "Backspace"
-      Vty.KDel -> "Delete"
-      Vty.KLeft -> "Left"
-      Vty.KRight -> "Right"
-      Vty.KUp -> "Up"
-      Vty.KDown -> "Down"
-      Vty.KHome -> "Home"
-      Vty.KEnd -> "End"
-      Vty.KPageUp -> "PageUp"
-      Vty.KPageDown -> "PageDown"
-      _ -> "?"
+-- | Format a bindings list for UI display, one per line
+formatBindingsForUI :: [(String, String)] -> [Widget ResourceName]
+formatBindingsForUI = map (\(k, d) -> str $ k <> ": " <> d)
+
+-- | Format a bindings list for speech: "key, desc. key, desc."
+formatBindingsForSpeech :: [(String, String)] -> String
+formatBindingsForSpeech = intercalate ". " . map (\(k, d) -> k <> ", " <> d)
 
 handleEvent ::
   Config ->
@@ -209,6 +164,9 @@ handleGlobalBindings config voicePath speechVar k mods
       let description = describeKeysForMode config (stateMode s)
       speakText voicePath speechVar description
       pure True
+  | matches k mods (globalQuit gb) = do
+      halt
+      pure True
   | otherwise = pure False
   where
     gb = configGlobalBindings config
@@ -216,47 +174,12 @@ handleGlobalBindings config voicePath speechVar k mods
 -- | Generate a spoken description of available keys for a mode
 describeKeysForMode :: Config -> Mode -> String
 describeKeysForMode config mode =
-  globalDesc <> ". " <> modeDesc
+  formatBindingsForSpeech (globalBindings <> modeBindings)
   where
-    gb = configGlobalBindings config
-    globalDesc =
-      showKeyCombo (globalCancelSpeech gb)
-        <> " cancel speech. "
-        <> showKeyCombo (globalListKeys gb)
-        <> " list keys"
-    modeDesc = case mode of
-      InputMode -> describeInputKeys (configInputBindings config)
-      OutputMode -> describeOutputKeys (configOutputBindings config)
-
--- | Describe input mode keybindings
-describeInputKeys :: InputBindings -> String
-describeInputKeys ib =
-  showKeyCombo (inputReadBuffer ib)
-    <> " read input. "
-    <> showKeyCombo (inputExecuteCommand ib)
-    <> " run command. "
-    <> showKeyCombo (inputDeleteBefore ib)
-    <> " delete before. "
-    <> showKeyCombo (inputDeleteAt ib)
-    <> " delete at cursor. "
-    <> showKeyCombo (inputMoveCursorLeft ib)
-    <> " move left. "
-    <> showKeyCombo (inputMoveCursorRight ib)
-    <> " move right"
-
--- | Describe output mode keybindings
-describeOutputKeys :: OutputBindings -> String
-describeOutputKeys ob =
-  showKeyCombo (outputReadLine ob)
-    <> " read line. "
-    <> showKeyCombo (outputNextLine ob)
-    <> " next line. "
-    <> showKeyCombo (outputPreviousLine ob)
-    <> " previous line. "
-    <> showKeyCombo (outputEnterInputMode ob)
-    <> " input mode. "
-    <> showKeyCombo (outputQuit ob)
-    <> " quit"
+    globalBindings = globalBindingsList (configGlobalBindings config)
+    modeBindings = case mode of
+      InputMode -> inputBindingsList (configInputBindings config)
+      OutputMode -> outputBindingsList (configOutputBindings config)
 
 handleInputMode ::
   Config ->
@@ -347,7 +270,6 @@ handleOutputMode config voicePath speechVar k mods
   | matches k mods (outputEnterInputMode ob) = do
       modify $ \s -> s {stateMode = InputMode}
       speakVoice voicePath speechVar (voiceInputMode vl)
-  | matches k mods (outputQuit ob) = halt
   | otherwise = pure ()
   where
     ob = configOutputBindings config
