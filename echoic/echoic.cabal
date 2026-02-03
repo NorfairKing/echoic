@@ -17,13 +17,18 @@ library
   exposed-modules:
       Echoic
       Echoic.App
+      Echoic.App.Core
+      Echoic.App.Event
+      Echoic.App.Render
       Echoic.Config
       Echoic.Default
       Echoic.Env
+      Echoic.Keybinding
       Echoic.OptParse
       Echoic.Shell
-      Echoic.Speech
-      Echoic.State
+      Echoic.Voice
+      Echoic.Voice.Piper
+      Echoic.Voice.Speed
   other-modules:
       Paths_echoic
   hs-source-dirs:

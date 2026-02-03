@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Echoic.Speech
+module Echoic.Voice.Piper
   ( SpeechHandle,
     speakAsync,
     speakVoiceLineAsync,
@@ -19,7 +19,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LTE
-import Echoic.Config (VoiceLine (..))
+import Echoic.Voice (VoiceLine (..))
 import Path (Abs, File, Path, fromAbsFile)
 import System.IO (hClose)
 import System.Process.Typed

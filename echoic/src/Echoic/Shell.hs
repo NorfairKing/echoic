@@ -8,7 +8,6 @@ import qualified Data.ByteString.Lazy as LB
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as TE
-import Echoic.State (truncateLine)
 import System.Exit (ExitCode (..))
 import System.Process.Typed (readProcess, shell)
 
@@ -32,3 +31,13 @@ runShellCommand cmd = do
         resultStdout = parseOutput stdout,
         resultStderr = parseOutput stderr
       }
+
+-- | Maximum line length for output truncation
+maxLineLength :: Int
+maxLineLength = 120
+
+-- | Truncate a line to maxLineLength characters
+truncateLine :: Text -> Text
+truncateLine t
+  | Text.length t <= maxLineLength = t
+  | otherwise = Text.take (maxLineLength - 3) t <> "..."

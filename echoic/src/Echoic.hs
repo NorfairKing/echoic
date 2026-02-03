@@ -3,12 +3,12 @@ module Echoic (runEchoic) where
 import Brick (customMain)
 import Brick.BChan (newBChan)
 import Control.Concurrent.STM (newTVarIO)
-import Echoic.App (echoicApp)
+import Echoic.App (initialState, stateVoiceSpeed)
+import Echoic.App.Core (echoicApp)
 import Echoic.Config (Config (..), VoiceLines (..))
 import Echoic.Env (EchoicEnv (..))
 import Echoic.OptParse (Settings (..), getSettings)
-import Echoic.Speech (speakVoiceLineSync)
-import Echoic.State (initialState, stateVoiceSpeed)
+import Echoic.Voice.Piper (speakVoiceLineSync)
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.CrossPlatform as VCP
 

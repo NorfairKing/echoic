@@ -13,8 +13,8 @@ where
 import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
 import Control.Monad.Reader
 import Data.Foldable (for_)
-import Echoic.Config (VoiceLine)
-import Echoic.Speech (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsync)
+import Echoic.Voice (VoiceLine)
+import Echoic.Voice.Piper (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsync)
 import Path
 
 data EchoicEnv = EchoicEnv

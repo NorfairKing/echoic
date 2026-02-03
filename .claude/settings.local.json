@@ -12,7 +12,9 @@
       "Bash(piper:*)",
       "Bash(nix-prefetch-url:*)",
       "Bash(nix hash to-sri:*)",
-      "WebFetch(domain:rhasspy.github.io)"
+      "WebFetch(domain:rhasspy.github.io)",
+      "Bash(done)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
