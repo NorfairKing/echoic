@@ -7,9 +7,9 @@ where
 import Brick
 import Brick.BChan (BChan, writeBChan)
 import Control.Concurrent.Async (async)
-import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
+import Control.Concurrent.STM (atomically, readTVar, writeTVar)
 import Control.Monad (unless)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Reader
 import Cursor.Brick.Text (selectedTextCursorWidget)
 import Cursor.Text (TextCursor)
 import qualified Cursor.Text as TextCursor
@@ -20,12 +20,19 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Echoic.Config
+import Echoic.Env (EchoicEnv (..))
 import Echoic.Shell (OutputResult (..), runShellCommand)
-import Echoic.Speech (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsync)
+import Echoic.Speech (cancelSpeech, speakAsync, speakVoiceLineAsync)
 import Echoic.State
 import qualified Graphics.Vty as Vty
-import Path (Abs, File, Path)
 import Text.Printf (printf)
+
+-- | Event handler monad with access to EchoicEnv
+type EchoicEventM a = ReaderT EchoicEnv (EventM ResourceName AppState) a
+
+-- | Run an EchoicEventM action
+runE :: EchoicEnv -> EchoicEventM a -> EventM ResourceName AppState a
+runE = flip runReaderT
 
 data AppEvent
   = CommandComplete OutputResult
@@ -33,15 +40,14 @@ data AppEvent
 
 echoicApp ::
   Config ->
-  Path Abs File ->
-  TVar (Maybe SpeechHandle) ->
+  EchoicEnv ->
   BChan AppEvent ->
   App AppState AppEvent ResourceName
-echoicApp config voicePath speechVar eventChan =
+echoicApp config env eventChan =
   App
     { appDraw = drawUI config,
       appChooseCursor = neverShowCursor,
-      appHandleEvent = handleEvent config voicePath speechVar eventChan,
+      appHandleEvent = runE env . handleEvent config eventChan,
       appStartEvent = pure (),
       appAttrMap = const theAttrMap
     }
@@ -101,21 +107,19 @@ formatBindingsForSpeech = intercalate ". " . map (\(k, d) -> k <> ", " <> d)
 
 handleEvent ::
   Config ->
-  Path Abs File ->
-  TVar (Maybe SpeechHandle) ->
   BChan AppEvent ->
   BrickEvent ResourceName AppEvent ->
-  EventM ResourceName AppState ()
-handleEvent config voicePath speechVar eventChan event = do
-  s <- get
+  EchoicEventM ()
+handleEvent config eventChan event = do
+  s <- lift get
   case event of
     VtyEvent (Vty.EvKey k mods) -> do
       -- Try global bindings first, then mode-specific
-      handled <- handleGlobalBindings config voicePath speechVar k mods
+      handled <- handleGlobalBindings config k mods
       unless handled $
         case stateMode s of
-          InputMode -> handleInputMode config voicePath speechVar eventChan k mods
-          OutputMode -> handleOutputMode config voicePath speechVar k mods
+          InputMode -> handleInputMode config eventChan k mods
+          OutputMode -> handleOutputMode config k mods
     AppEvent (CommandComplete result) -> do
       let allLines = resultStdout result <> resultStderr result
           ob =
@@ -128,14 +132,15 @@ handleEvent config voicePath speechVar eventChan event = do
             if resultExitCode result == 0
               then voiceDone vl
               else voiceFailed vl
-      modify $ \st ->
-        st
-          { stateMode = OutputMode,
-            stateOutput = Just ob,
-            stateHistory = outputCommand ob : stateHistory st,
-            stateInputBuffer = TextCursor.emptyTextCursor
-          }
-      speakVoice voicePath speechVar statusVoice
+      lift $
+        modify $ \st ->
+          st
+            { stateMode = OutputMode,
+              stateOutput = Just ob,
+              stateHistory = outputCommand ob : stateHistory st,
+              stateInputBuffer = TextCursor.emptyTextCursor
+            }
+      speakVoice statusVoice
     _ -> pure ()
   where
     vl = configVoiceLines config
@@ -148,34 +153,30 @@ matches k mods (KeyCombo k' mods') = k == k' && mods == mods'
 -- Returns True if the key was handled
 handleGlobalBindings ::
   Config ->
-  Path Abs File ->
-  TVar (Maybe SpeechHandle) ->
   Vty.Key ->
   [Vty.Modifier] ->
-  EventM ResourceName AppState Bool
-handleGlobalBindings config voicePath speechVar k mods
+  EchoicEventM Bool
+handleGlobalBindings config k mods
   | matches k mods (globalCancelSpeech gb) = do
-      liftIO $ cancelCurrentSpeech speechVar
+      cancelCurrentSpeech
       pure True
   | matches k mods (globalListKeys gb) = do
-      s <- get
+      s <- lift get
       let description = describeKeysForMode config (stateMode s)
-      speakText voicePath speechVar description
+      speakText description
       pure True
   | matches k mods (globalSpeedUp gb) = do
-      s <- get
-      let newSpeed = speedUp (stateVoiceSpeed s)
-      modify $ \st -> st {stateVoiceSpeed = newSpeed}
-      speakTextWithSpeed voicePath speechVar newSpeed (formatSpeed newSpeed)
+      newSpeed <- lift $ gets (speedUp . stateVoiceSpeed)
+      lift $ modify $ \st -> st {stateVoiceSpeed = newSpeed}
+      speakText (formatSpeed newSpeed)
       pure True
   | matches k mods (globalSpeedDown gb) = do
-      s <- get
-      let newSpeed = speedDown (stateVoiceSpeed s)
-      modify $ \st -> st {stateVoiceSpeed = newSpeed}
-      speakTextWithSpeed voicePath speechVar newSpeed (formatSpeed newSpeed)
+      newSpeed <- lift $ gets (speedDown . stateVoiceSpeed)
+      lift $ modify $ \st -> st {stateVoiceSpeed = newSpeed}
+      speakText (formatSpeed newSpeed)
       pure True
   | matches k mods (globalQuit gb) = do
-      halt
+      lift halt
       pure True
   | otherwise = pure False
   where
@@ -197,43 +198,41 @@ describeKeysForMode config mode =
 
 handleInputMode ::
   Config ->
-  Path Abs File ->
-  TVar (Maybe SpeechHandle) ->
   BChan AppEvent ->
   Vty.Key ->
   [Vty.Modifier] ->
-  EventM ResourceName AppState ()
-handleInputMode config voicePath speechVar eventChan k mods
+  EchoicEventM ()
+handleInputMode config eventChan k mods
   | matches k mods (inputReadBuffer ib) = do
-      s <- get
+      s <- lift get
       let input = TextCursor.rebuildTextCursor (stateInputBuffer s)
       if Text.null input
-        then speakVoice voicePath speechVar (voiceEmpty vl)
-        else speakText voicePath speechVar (Text.unpack input)
+        then speakVoice (voiceEmpty vl)
+        else speakText (Text.unpack input)
   | matches k mods (inputExecuteCommand ib) = do
-      s <- get
+      s <- lift get
       let cmd = TextCursor.rebuildTextCursor (stateInputBuffer s)
       if Text.null cmd
-        then speakVoice voicePath speechVar (voiceEmptyCommand vl)
+        then speakVoice (voiceEmptyCommand vl)
         else do
-          speakVoice voicePath speechVar (voiceRun vl)
+          speakVoice (voiceRun vl)
           liftIO $ do
             _ <- async $ do
               result <- runShellCommand cmd
               writeBChan eventChan (CommandComplete result)
             pure ()
   | matches k mods (inputDeleteBefore ib) =
-      modifyBufferDOU TextCursor.textCursorRemove
+      lift $ modifyBufferDOU TextCursor.textCursorRemove
   | matches k mods (inputDeleteAt ib) =
-      modifyBufferDOU TextCursor.textCursorDelete
+      lift $ modifyBufferDOU TextCursor.textCursorDelete
   | matches k mods (inputMoveCursorLeft ib) =
-      modifyBufferM TextCursor.textCursorSelectPrev
+      lift $ modifyBufferM TextCursor.textCursorSelectPrev
   | matches k mods (inputMoveCursorRight ib) =
-      modifyBufferM TextCursor.textCursorSelectNext
+      lift $ modifyBufferM TextCursor.textCursorSelectNext
   -- Character insertion (catch-all for unmodified characters)
   | Vty.KChar c <- k,
     null mods =
-      modifyBufferM $ TextCursor.textCursorInsert c
+      lift $ modifyBufferM $ TextCursor.textCursorInsert c
   | otherwise = pure ()
   where
     ib = configInputBindings config
@@ -241,86 +240,85 @@ handleInputMode config voicePath speechVar eventChan k mods
 
 handleOutputMode ::
   Config ->
-  Path Abs File ->
-  TVar (Maybe SpeechHandle) ->
   Vty.Key ->
   [Vty.Modifier] ->
-  EventM ResourceName AppState ()
-handleOutputMode config voicePath speechVar k mods
+  EchoicEventM ()
+handleOutputMode config k mods
   | matches k mods (outputReadLine ob) = do
-      s <- get
+      s <- lift get
       case stateOutput s of
         Nothing -> pure ()
         Just buf ->
           let idx = outputIndex buf
            in if null (outputLines buf)
-                then speakVoice voicePath speechVar (voiceNoOutput vl)
-                else speakLine voicePath speechVar (outputLines buf !! idx)
+                then speakVoice (voiceNoOutput vl)
+                else speakLine (outputLines buf !! idx)
   | matches k mods (outputNextLine ob) = do
-      s <- get
+      s <- lift get
       case stateOutput s of
         Nothing -> pure ()
         Just buf ->
           let total = length (outputLines buf)
               idx = outputIndex buf
            in if idx >= total - 1
-                then speakVoice voicePath speechVar (voiceBottom vl)
+                then speakVoice (voiceBottom vl)
                 else do
                   let newIdx = idx + 1
-                  modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
-                  speakLine voicePath speechVar (outputLines buf !! newIdx)
+                  lift $ modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
+                  speakLine (outputLines buf !! newIdx)
   | matches k mods (outputPreviousLine ob) = do
-      s <- get
+      s <- lift get
       case stateOutput s of
         Nothing -> pure ()
         Just buf ->
           let idx = outputIndex buf
            in if idx <= 0
-                then speakVoice voicePath speechVar (voiceTop vl)
+                then speakVoice (voiceTop vl)
                 else do
                   let newIdx = idx - 1
-                  modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
-                  speakLine voicePath speechVar (outputLines buf !! newIdx)
+                  lift $ modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
+                  speakLine (outputLines buf !! newIdx)
   | matches k mods (outputEnterInputMode ob) = do
-      modify $ \s -> s {stateMode = InputMode}
-      speakVoice voicePath speechVar (voiceInputMode vl)
+      lift $ modify $ \s -> s {stateMode = InputMode}
+      speakVoice (voiceInputMode vl)
   | otherwise = pure ()
   where
     ob = configOutputBindings config
     vl = configVoiceLines config
 
--- | Speak a configured voice line
-speakVoice :: Path Abs File -> TVar (Maybe SpeechHandle) -> VoiceLine -> EventM ResourceName AppState ()
-speakVoice voicePath speechVar voiceLine = do
-  s <- get
+-- | Cancel any currently playing speech
+cancelCurrentSpeech :: EchoicEventM ()
+cancelCurrentSpeech = do
+  speechVar <- asks envSpeechVar
   liftIO $ do
-    cancelCurrentSpeech speechVar
-    handle <- speakVoiceLineAsync voicePath (stateVoiceSpeed s) voiceLine
-    atomically $ writeTVar speechVar (Just handle)
+    mHandle <- atomically $ do
+      h <- readTVar speechVar
+      writeTVar speechVar Nothing
+      pure h
+    for_ mHandle cancelSpeech
+
+-- | Speak a configured voice line
+speakVoice :: VoiceLine -> EchoicEventM ()
+speakVoice voiceLine = do
+  cancelCurrentSpeech
+  speed <- lift $ gets stateVoiceSpeed
+  env <- ask
+  liftIO $ do
+    handle <- speakVoiceLineAsync (envVoicePath env) speed voiceLine
+    atomically $ writeTVar (envSpeechVar env) (Just handle)
 
 -- | Speak arbitrary text (for dynamic content like user input or output lines)
-speakText :: Path Abs File -> TVar (Maybe SpeechHandle) -> String -> EventM ResourceName AppState ()
-speakText voicePath speechVar text = do
-  s <- get
-  speakTextWithSpeed voicePath speechVar (stateVoiceSpeed s) text
+speakText :: String -> EchoicEventM ()
+speakText text = do
+  cancelCurrentSpeech
+  speed <- lift $ gets stateVoiceSpeed
+  env <- ask
+  liftIO $ do
+    handle <- speakAsync (envVoicePath env) speed text
+    atomically $ writeTVar (envSpeechVar env) (Just handle)
 
--- | Speak text at a specific speed (used for speed announcements)
-speakTextWithSpeed :: Path Abs File -> TVar (Maybe SpeechHandle) -> Double -> String -> EventM ResourceName AppState ()
-speakTextWithSpeed voicePath speechVar speed text = liftIO $ do
-  cancelCurrentSpeech speechVar
-  handle <- speakAsync voicePath speed text
-  atomically $ writeTVar speechVar (Just handle)
-
-speakLine :: Path Abs File -> TVar (Maybe SpeechHandle) -> Text -> EventM ResourceName AppState ()
-speakLine voicePath speechVar line = speakText voicePath speechVar (Text.unpack line)
-
-cancelCurrentSpeech :: TVar (Maybe SpeechHandle) -> IO ()
-cancelCurrentSpeech speechVar = do
-  mHandle <- atomically $ do
-    h <- readTVar speechVar
-    writeTVar speechVar Nothing
-    pure h
-  for_ mHandle cancelSpeech
+speakLine :: Text -> EchoicEventM ()
+speakLine line = speakText (Text.unpack line)
 
 modifyBufferM :: (TextCursor -> Maybe TextCursor) -> EventM ResourceName AppState ()
 modifyBufferM f = modify $ \s -> s {stateInputBuffer = fromMaybe (stateInputBuffer s) (f (stateInputBuffer s))}

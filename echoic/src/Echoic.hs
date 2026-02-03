@@ -5,6 +5,7 @@ import Brick.BChan (newBChan)
 import Control.Concurrent.STM (newTVarIO)
 import Echoic.App (echoicApp)
 import Echoic.Config (Config (..), VoiceLines (..))
+import Echoic.Env (EchoicEnv (..))
 import Echoic.OptParse (Settings (..), getSettings)
 import Echoic.Speech (speakVoiceLineSync)
 import Echoic.State (initialState, stateVoiceSpeed)
@@ -20,7 +21,8 @@ runEchoic config = do
   eventChan <- newBChan 10
   speechVar <- newTVarIO Nothing
 
-  let app = echoicApp config settingVoicePath speechVar eventChan
+  let env = EchoicEnv {envVoicePath = settingVoicePath, envSpeechVar = speechVar}
+      app = echoicApp config env eventChan
       buildVty = VCP.mkVty V.defaultConfig
 
   vty <- buildVty
