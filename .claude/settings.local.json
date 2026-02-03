@@ -7,7 +7,12 @@
       "Bash(nix build:*)",
       "Bash(hpack)",
       "Bash(cat:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(tree:*)",
+      "Bash(piper:*)",
+      "Bash(nix-prefetch-url:*)",
+      "Bash(nix hash to-sri:*)",
+      "WebFetch(domain:rhasspy.github.io)"
     ],
     "deny": [],
     "ask": []

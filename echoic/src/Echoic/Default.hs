@@ -24,13 +24,17 @@ defaultConfig =
 --
 -- Esc: cancel speech
 -- ?: list available keys
--- Ctrl+Shift+D: quit
+-- [: speed up (faster)
+-- ]: speed down (slower)
+-- Ctrl+D: quit
 defaultGlobalBindings :: GlobalBindings
 defaultGlobalBindings =
   GlobalBindings
     { globalCancelSpeech = key Vty.KEsc,
       globalListKeys = char '?',
-      globalQuit = ctrl 'd'
+      globalQuit = ctrl 'd',
+      globalSpeedUp = char '[',
+      globalSpeedDown = char ']'
     }
 
 -- | Default keybindings for input mode

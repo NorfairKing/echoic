@@ -6,6 +6,10 @@ module Echoic.State
     initialState,
     maxLineLength,
     truncateLine,
+    speedUp,
+    speedDown,
+    minSpeed,
+    maxSpeed,
   )
 where
 
@@ -34,7 +38,8 @@ data AppState = AppState
   { stateMode :: !Mode,
     stateInputBuffer :: !TextCursor,
     stateOutput :: !(Maybe OutputBuffer),
-    stateHistory :: ![Text]
+    stateHistory :: ![Text],
+    stateVoiceSpeed :: !Double
   }
   deriving (Show)
 
@@ -44,7 +49,8 @@ initialState =
     { stateMode = InputMode,
       stateInputBuffer = TextCursor.emptyTextCursor,
       stateOutput = Nothing,
-      stateHistory = []
+      stateHistory = [],
+      stateVoiceSpeed = 1.0
     }
 
 maxLineLength :: Int
@@ -54,3 +60,20 @@ truncateLine :: Text -> Text
 truncateLine t
   | Text.length t <= maxLineLength = t
   | otherwise = Text.take (maxLineLength - 3) t <> "..."
+
+-- | Speed limits (lower value = faster speech)
+minSpeed, maxSpeed :: Double
+minSpeed = 0.4
+maxSpeed = 2.0
+
+-- | Speed adjustment step
+speedStep :: Double
+speedStep = 0.1
+
+-- | Increase speech speed (decrease length scale)
+speedUp :: Double -> Double
+speedUp s = max minSpeed (s - speedStep)
+
+-- | Decrease speech speed (increase length scale)
+speedDown :: Double -> Double
+speedDown s = min maxSpeed (s + speedStep)

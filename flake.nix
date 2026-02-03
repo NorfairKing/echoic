@@ -86,7 +86,7 @@
 
         shellHook = ''
           ${self.checks.${system}.pre-commit.shellHook}
-          export PIPER_VOICE="${pkgs.echoicPiperVoice}/en_US-lessac-medium.onnx"
+          export PIPER_VOICE="${pkgs.echoicPiperVoiceMale}/en_US-joe-medium.onnx"
           echo "Echoic development shell"
           echo "Voice model: $PIPER_VOICE"
         '';

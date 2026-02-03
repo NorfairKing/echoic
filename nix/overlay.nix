@@ -2,7 +2,7 @@ final: prev:
 with final.lib;
 with final.haskell.lib;
 {
-  # Piper voice model
+  # Piper voice model (female - lessac)
   echoicPiperVoice =
     let
       voice = final.fetchurl {
@@ -18,6 +18,24 @@ with final.haskell.lib;
       mkdir -p $out
       cp ${voice} $out/en_US-lessac-medium.onnx
       cp ${voiceConfig} $out/en_US-lessac-medium.onnx.json
+    '';
+
+  # Piper voice model (male - joe, neutral)
+  echoicPiperVoiceMale =
+    let
+      voice = final.fetchurl {
+        url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx";
+        sha256 = "sha256-WK/OAyG42cRtfN+cFlAMxVp5O0IgIS26a3D7eIs7rwY=";
+      };
+      voiceConfig = final.fetchurl {
+        url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/joe/medium/en_US-joe-medium.onnx.json";
+        sha256 = "sha256-PW1UELN5XLGVBZUkfvjwYZBxnm/b+jojVtjsNo4arTM=";
+      };
+    in
+    final.runCommand "piper-voice-joe" { } ''
+      mkdir -p $out
+      cp ${voice} $out/en_US-joe-medium.onnx
+      cp ${voiceConfig} $out/en_US-joe-medium.onnx.json
     '';
 
   echoicRelease =

@@ -7,7 +7,7 @@ import Echoic.App (echoicApp)
 import Echoic.Config (Config (..), VoiceLines (..))
 import Echoic.OptParse (Settings (..), getSettings)
 import Echoic.Speech (speakVoiceLineSync)
-import Echoic.State (initialState)
+import Echoic.State (initialState, stateVoiceSpeed)
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.CrossPlatform as VCP
 
@@ -15,7 +15,7 @@ runEchoic :: Config -> IO ()
 runEchoic config = do
   Settings {..} <- getSettings
 
-  speakVoiceLineSync settingVoicePath (voiceStartup (configVoiceLines config))
+  speakVoiceLineSync settingVoicePath (stateVoiceSpeed initialState) (voiceStartup (configVoiceLines config))
 
   eventChan <- newBChan 10
   speechVar <- newTVarIO Nothing

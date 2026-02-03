@@ -51,7 +51,9 @@ data Config = Config
 data GlobalBindings = GlobalBindings
   { globalCancelSpeech :: !KeyCombo,
     globalListKeys :: !KeyCombo,
-    globalQuit :: !KeyCombo
+    globalQuit :: !KeyCombo,
+    globalSpeedUp :: !KeyCombo,
+    globalSpeedDown :: !KeyCombo
   }
   deriving (Show)
 
@@ -154,6 +156,7 @@ globalBindingsList :: GlobalBindings -> [(String, String)]
 globalBindingsList gb =
   [ (showKeyCombo (globalCancelSpeech gb), "cancel"),
     (showKeyCombo (globalListKeys gb), "keys"),
+    (showKeyCombo (globalSpeedUp gb) <> "/" <> showKeyCombo (globalSpeedDown gb), "speed"),
     (showKeyCombo (globalQuit gb), "quit")
   ]
 

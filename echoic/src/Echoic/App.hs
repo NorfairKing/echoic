@@ -25,6 +25,7 @@ import Echoic.Speech (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsyn
 import Echoic.State
 import qualified Graphics.Vty as Vty
 import Path (Abs, File, Path)
+import Text.Printf (printf)
 
 data AppEvent
   = CommandComplete OutputResult
@@ -60,8 +61,8 @@ drawInputMode config s =
   ]
   where
     bindings =
-      take 2 (inputBindingsList (configInputBindings config))
-        <> globalBindingsList (configGlobalBindings config)
+      globalBindingsList (configGlobalBindings config)
+        <> inputBindingsList (configInputBindings config)
 
 drawOutputMode :: Config -> AppState -> [Widget ResourceName]
 drawOutputMode config s =
@@ -69,7 +70,7 @@ drawOutputMode config s =
       case stateOutput s of
         Nothing ->
           [str "No output", str " "]
-            <> formatBindingsForUI minimalBindings
+            <> formatBindingsForUI bindings
         Just ob ->
           let total = length (outputLines ob)
               idx = outputIndex ob
@@ -83,15 +84,12 @@ drawOutputMode config s =
                 str currentLine,
                 str " "
               ]
-                <> formatBindingsForUI fullBindings
+                <> formatBindingsForUI bindings
   ]
   where
-    fullBindings =
-      outputBindingsList (configOutputBindings config)
-        <> globalBindingsList (configGlobalBindings config)
-    minimalBindings =
-      drop 2 (outputBindingsList (configOutputBindings config))
-        <> [last (globalBindingsList (configGlobalBindings config))]
+    bindings =
+      globalBindingsList (configGlobalBindings config)
+        <> outputBindingsList (configOutputBindings config)
 
 -- | Format a bindings list for UI display, one per line
 formatBindingsForUI :: [(String, String)] -> [Widget ResourceName]
@@ -164,12 +162,28 @@ handleGlobalBindings config voicePath speechVar k mods
       let description = describeKeysForMode config (stateMode s)
       speakText voicePath speechVar description
       pure True
+  | matches k mods (globalSpeedUp gb) = do
+      s <- get
+      let newSpeed = speedUp (stateVoiceSpeed s)
+      modify $ \st -> st {stateVoiceSpeed = newSpeed}
+      speakTextWithSpeed voicePath speechVar newSpeed (formatSpeed newSpeed)
+      pure True
+  | matches k mods (globalSpeedDown gb) = do
+      s <- get
+      let newSpeed = speedDown (stateVoiceSpeed s)
+      modify $ \st -> st {stateVoiceSpeed = newSpeed}
+      speakTextWithSpeed voicePath speechVar newSpeed (formatSpeed newSpeed)
+      pure True
   | matches k mods (globalQuit gb) = do
       halt
       pure True
   | otherwise = pure False
   where
     gb = configGlobalBindings config
+
+-- | Format speed for speech announcement (as percentage, e.g. "150 percent")
+formatSpeed :: Double -> String
+formatSpeed s = printf "%.0f percent" (100.0 / s)
 
 -- | Generate a spoken description of available keys for a mode
 describeKeysForMode :: Config -> Mode -> String
@@ -277,16 +291,24 @@ handleOutputMode config voicePath speechVar k mods
 
 -- | Speak a configured voice line
 speakVoice :: Path Abs File -> TVar (Maybe SpeechHandle) -> VoiceLine -> EventM ResourceName AppState ()
-speakVoice voicePath speechVar voiceLine = liftIO $ do
-  cancelCurrentSpeech speechVar
-  handle <- speakVoiceLineAsync voicePath voiceLine
-  atomically $ writeTVar speechVar (Just handle)
+speakVoice voicePath speechVar voiceLine = do
+  s <- get
+  liftIO $ do
+    cancelCurrentSpeech speechVar
+    handle <- speakVoiceLineAsync voicePath (stateVoiceSpeed s) voiceLine
+    atomically $ writeTVar speechVar (Just handle)
 
 -- | Speak arbitrary text (for dynamic content like user input or output lines)
 speakText :: Path Abs File -> TVar (Maybe SpeechHandle) -> String -> EventM ResourceName AppState ()
-speakText voicePath speechVar text = liftIO $ do
+speakText voicePath speechVar text = do
+  s <- get
+  speakTextWithSpeed voicePath speechVar (stateVoiceSpeed s) text
+
+-- | Speak text at a specific speed (used for speed announcements)
+speakTextWithSpeed :: Path Abs File -> TVar (Maybe SpeechHandle) -> Double -> String -> EventM ResourceName AppState ()
+speakTextWithSpeed voicePath speechVar speed text = liftIO $ do
   cancelCurrentSpeech speechVar
-  handle <- speakAsync voicePath text
+  handle <- speakAsync voicePath speed text
   atomically $ writeTVar speechVar (Just handle)
 
 speakLine :: Path Abs File -> TVar (Maybe SpeechHandle) -> Text -> EventM ResourceName AppState ()
