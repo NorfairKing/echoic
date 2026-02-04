@@ -43,6 +43,7 @@ library
     , base >=4.17 && <5
     , brick
     , bytestring
+    , containers
     , cursor
     , cursor-brick
     , mtl

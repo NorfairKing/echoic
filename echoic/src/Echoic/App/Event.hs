@@ -58,10 +58,10 @@ handleEvent config eventChan event = do
                 outputIndex = 0,
                 outputCommand = maybe "" (TextCursor.rebuildTextCursor . stateInputBuffer) (Just s)
               }
-          statusVoice =
+          statusKey =
             if resultExitCode result == 0
-              then voiceDone vl
-              else voiceFailed vl
+              then Done
+              else Failed
       lift $
         modify $ \st ->
           st
@@ -70,10 +70,8 @@ handleEvent config eventChan event = do
               stateHistory = outputCommand ob : stateHistory st,
               stateInputBuffer = TextCursor.emptyTextCursor
             }
-      speakVoice statusVoice
+      speakVoice statusKey
     _ -> pure ()
-  where
-    vl = configVoiceLines config
 
 -- | Check if a key event matches a key combo
 matches :: Vty.Key -> [Vty.Modifier] -> KeyCombo -> Bool
@@ -141,15 +139,15 @@ handleInputMode config eventChan k mods
       s <- lift get
       let input = TextCursor.rebuildTextCursor (stateInputBuffer s)
       if Text.null input
-        then speakVoice (voiceEmpty vl)
+        then speakVoice Empty
         else speakText (Text.unpack input)
   | matches k mods (inputExecuteCommand ib) = do
       s <- lift get
       let cmd = TextCursor.rebuildTextCursor (stateInputBuffer s)
       if Text.null cmd
-        then speakVoice (voiceEmptyCommand vl)
+        then speakVoice EmptyCommand
         else do
-          speakVoice (voiceRun vl)
+          speakVoice Run
           liftIO $ do
             _ <- async $ do
               result <- runShellCommand cmd
@@ -170,7 +168,6 @@ handleInputMode config eventChan k mods
   | otherwise = pure ()
   where
     ib = configInputBindings config
-    vl = configVoiceLines config
 
 handleOutputMode ::
   Config ->
@@ -185,7 +182,7 @@ handleOutputMode config k mods
         Just buf ->
           let idx = outputIndex buf
            in if null (outputLines buf)
-                then speakVoice (voiceNoOutput vl)
+                then speakVoice NoOutput
                 else speakLine (outputLines buf !! idx)
   | matches k mods (outputNextLine ob) = do
       s <- lift get
@@ -195,7 +192,7 @@ handleOutputMode config k mods
           let total = length (outputLines buf)
               idx = outputIndex buf
            in if idx >= total - 1
-                then speakVoice (voiceBottom vl)
+                then speakVoice Bottom
                 else do
                   let newIdx = idx + 1
                   lift $ modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
@@ -207,18 +204,17 @@ handleOutputMode config k mods
         Just buf ->
           let idx = outputIndex buf
            in if idx <= 0
-                then speakVoice (voiceTop vl)
+                then speakVoice Top
                 else do
                   let newIdx = idx - 1
                   lift $ modify $ \st -> st {stateOutput = Just buf {outputIndex = newIdx}}
                   speakLine (outputLines buf !! newIdx)
   | matches k mods (outputEnterInputMode ob) = do
       lift $ modify $ \s -> s {stateMode = InputMode}
-      speakVoice (voiceInputMode vl)
+      speakVoice EnterInputMode
   | otherwise = pure ()
   where
     ob = configOutputBindings config
-    vl = configVoiceLines config
 
 -- | Cancel any currently playing speech
 cancelCurrentSpeech :: EchoicEventM ()
@@ -231,12 +227,13 @@ cancelCurrentSpeech = do
       pure h
     for_ mHandle cancelSpeech
 
--- | Speak a configured voice line
-speakVoice :: VoiceLine -> EchoicEventM ()
-speakVoice voiceLine = do
+-- | Speak a configured voice line by key
+speakVoice :: VoiceLineKey -> EchoicEventM ()
+speakVoice voiceKey = do
   cancelCurrentSpeech
   speed <- lift $ gets stateVoiceSpeed
   env <- ask
+  let voiceLine = getVoiceLine voiceKey (envVoiceLines env)
   liftIO $ do
     handle <- speakVoiceLineAsync (envVoicePath env) speed voiceLine
     atomically $ writeTVar (envSpeechVar env) (Just handle)

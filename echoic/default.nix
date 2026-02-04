@@ -1,4 +1,4 @@
-{ mkDerivation, async, base, brick, bytestring, cursor
+{ mkDerivation, async, base, brick, bytestring, containers, cursor
 , cursor-brick, lib, mtl, opt-env-conf, path, stm, text
 , typed-process, vty, vty-crossplatform
 }:
@@ -9,8 +9,8 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    async base brick bytestring cursor cursor-brick mtl opt-env-conf
-    path stm text typed-process vty vty-crossplatform
+    async base brick bytestring containers cursor cursor-brick mtl
+    opt-env-conf path stm text typed-process vty vty-crossplatform
   ];
   executableHaskellDepends = [ base ];
   description = "Blind computing environment";

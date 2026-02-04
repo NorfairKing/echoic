@@ -18,7 +18,12 @@ runEchoic config = do
   eventChan <- newBChan 10
   speechVar <- newTVarIO Nothing
 
-  let env = EchoicEnv {envVoicePath = settingVoicePath, envSpeechVar = speechVar}
+  let env =
+        EchoicEnv
+          { envVoicePath = settingVoicePath,
+            envSpeechVar = speechVar,
+            envVoiceLines = configVoiceLines config
+          }
       app = echoicApp config env eventChan
       buildVty = VCP.mkVty V.defaultConfig
 

@@ -14,6 +14,7 @@ library:
     - async
     - brick
     - bytestring
+    - containers
     - cursor
     - cursor-brick
     - mtl

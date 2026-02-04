@@ -1,13 +1,18 @@
 module Echoic.Voice
   ( -- * Voice lines
     VoiceLine (..),
+    VoiceLineKey (..),
     VoiceLines (..),
+    getVoiceLine,
+    defaultVoiceLine,
 
     -- * Helpers for defining voice lines
     say,
   )
 where
 
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as Text
 import Path (Abs, File, Path)
@@ -18,20 +23,42 @@ data VoiceLine
   | VoiceLineFile !(Path Abs File)
   deriving (Show)
 
+-- | Keys for all configurable voice lines
+data VoiceLineKey
+  = Startup
+  | Empty
+  | EmptyCommand
+  | Run
+  | Done
+  | Failed
+  | NoOutput
+  | Bottom
+  | Top
+  | EnterInputMode
+  deriving (Eq, Ord, Show, Enum, Bounded)
+
 -- | All configurable voice lines
-data VoiceLines = VoiceLines
-  { voiceStartup :: !VoiceLine,
-    voiceEmpty :: !VoiceLine,
-    voiceEmptyCommand :: !VoiceLine,
-    voiceRun :: !VoiceLine,
-    voiceDone :: !VoiceLine,
-    voiceFailed :: !VoiceLine,
-    voiceNoOutput :: !VoiceLine,
-    voiceBottom :: !VoiceLine,
-    voiceTop :: !VoiceLine,
-    voiceInputMode :: !VoiceLine
-  }
+newtype VoiceLines = VoiceLines (Map VoiceLineKey VoiceLine)
   deriving (Show)
+
+-- | Look up a voice line, falling back to default if not configured
+getVoiceLine :: VoiceLineKey -> VoiceLines -> VoiceLine
+getVoiceLine key (VoiceLines m) =
+  Map.findWithDefault (defaultVoiceLine key) key m
+
+-- | Default voice line for each key
+defaultVoiceLine :: VoiceLineKey -> VoiceLine
+defaultVoiceLine = \case
+  Startup -> say "Echoic ready. Input mode."
+  Empty -> say "empty"
+  EmptyCommand -> say "empty command"
+  Run -> say "run"
+  Done -> say "done"
+  Failed -> say "failed"
+  NoOutput -> say "no output"
+  Bottom -> say "bottom"
+  Top -> say "top"
+  EnterInputMode -> say "input mode"
 
 -- | Create a spoken voice line from a string
 say :: String -> VoiceLine

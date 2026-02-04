@@ -7,19 +7,21 @@ module Echoic.Env
     cancelCurrentSpeech,
     speakTextM,
     speakVoiceLineM,
+    speakVoiceKeyM,
   )
 where
 
 import Control.Concurrent.STM (TVar, atomically, readTVar, writeTVar)
 import Control.Monad.Reader
 import Data.Foldable (for_)
-import Echoic.Voice (VoiceLine)
+import Echoic.Voice (VoiceLine, VoiceLineKey, VoiceLines, getVoiceLine)
 import Echoic.Voice.Piper (SpeechHandle, cancelSpeech, speakAsync, speakVoiceLineAsync)
 import Path
 
 data EchoicEnv = EchoicEnv
   { envVoicePath :: !(Path Abs File),
-    envSpeechVar :: !(TVar (Maybe SpeechHandle))
+    envSpeechVar :: !(TVar (Maybe SpeechHandle)),
+    envVoiceLines :: !VoiceLines
   }
 
 type EchoicM = ReaderT EchoicEnv IO
@@ -63,3 +65,9 @@ speakVoiceLineM speed voiceLine = do
   liftIO $ do
     handle <- speakVoiceLineAsync voicePath speed voiceLine
     atomically $ writeTVar speechVar (Just handle)
+
+-- | Speak a voice line by key at a given speed
+speakVoiceKeyM :: Double -> VoiceLineKey -> EchoicM ()
+speakVoiceKeyM speed key = do
+  voiceLines <- asks envVoiceLines
+  speakVoiceLineM speed (getVoiceLine key voiceLines)

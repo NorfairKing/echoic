@@ -7,6 +7,7 @@ module Echoic.Default
   )
 where
 
+import qualified Data.Map.Strict as Map
 import Echoic.Config
 import qualified Graphics.Vty as Vty
 
@@ -74,15 +75,4 @@ defaultOutputBindings =
 -- | Default voice lines
 defaultVoiceLines :: VoiceLines
 defaultVoiceLines =
-  VoiceLines
-    { voiceStartup = say "Echoic ready. Input mode.",
-      voiceEmpty = say "empty",
-      voiceEmptyCommand = say "empty command",
-      voiceRun = say "run",
-      voiceDone = say "done",
-      voiceFailed = say "failed",
-      voiceNoOutput = say "no output",
-      voiceBottom = say "bottom",
-      voiceTop = say "top",
-      voiceInputMode = say "input mode"
-    }
+  VoiceLines $ Map.fromList [(k, defaultVoiceLine k) | k <- [minBound .. maxBound]]
