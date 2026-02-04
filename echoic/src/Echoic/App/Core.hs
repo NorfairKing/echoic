@@ -6,9 +6,9 @@ where
 import Brick
 import Brick.BChan (BChan)
 import Echoic.App
-import Echoic.App.Event (handleEvent, runE)
+import Echoic.App.Event (handleEvent, runE, speakVoice)
 import Echoic.App.Render (drawUI)
-import Echoic.Config (Config)
+import Echoic.Config
 import Echoic.Env (EchoicEnv)
 import qualified Graphics.Vty as Vty
 
@@ -22,7 +22,9 @@ echoicApp config env eventChan =
     { appDraw = drawUI config,
       appChooseCursor = neverShowCursor,
       appHandleEvent = runE env . handleEvent config eventChan,
-      appStartEvent = pure (),
+      appStartEvent =
+        runE env $
+          speakVoice (voiceStartup (configVoiceLines config)),
       appAttrMap = const theAttrMap
     }
 

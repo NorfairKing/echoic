@@ -14,7 +14,10 @@
       "Bash(nix hash to-sri:*)",
       "WebFetch(domain:rhasspy.github.io)",
       "Bash(done)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(timeout 15 claude --print --verbose --output-format stream-json --include-partial-messages)",
+      "Bash(timeout 15 claude:*)",
+      "Bash(timeout 15 claude --print --continue:*)"
     ],
     "deny": [],
     "ask": []

@@ -3,20 +3,17 @@ module Echoic (runEchoic) where
 import Brick (customMain)
 import Brick.BChan (newBChan)
 import Control.Concurrent.STM (newTVarIO)
-import Echoic.App (initialState, stateVoiceSpeed)
+import Echoic.App (initialState)
 import Echoic.App.Core (echoicApp)
-import Echoic.Config (Config (..), VoiceLines (..))
+import Echoic.Config (Config (..))
 import Echoic.Env (EchoicEnv (..))
 import Echoic.OptParse (Settings (..), getSettings)
-import Echoic.Voice.Piper (speakVoiceLineSync)
 import qualified Graphics.Vty as V
 import qualified Graphics.Vty.CrossPlatform as VCP
 
 runEchoic :: Config -> IO ()
 runEchoic config = do
   Settings {..} <- getSettings
-
-  speakVoiceLineSync settingVoicePath (stateVoiceSpeed initialState) (voiceStartup (configVoiceLines config))
 
   eventChan <- newBChan 10
   speechVar <- newTVarIO Nothing

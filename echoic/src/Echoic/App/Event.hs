@@ -2,6 +2,7 @@ module Echoic.App.Event
   ( handleEvent,
     EchoicEventM,
     runE,
+    speakVoice,
   )
 where
 
